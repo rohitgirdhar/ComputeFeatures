@@ -5,14 +5,14 @@ import matplotlib.pyplot as plt
 import argparse
 import os
 
-caffe_root = '../../../01_DepthRegression/caffe/'
+caffe_root = '../../../../../01_DepthRegression/caffe/'
 import sys
 sys.path.insert(0, caffe_root + 'python')
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--imagesdir', type=str,
+parser.add_argument('--imagesdir', type=str, required=True,
         help='Directory path with all the images to process')
-parser.add_argument('--outputdir', type=str,
+parser.add_argument('--outputdir', type=str, required=True,
         help='Output directory')
 parser.add_argument('--feature', type=str, default='prediction',
         help='could be prediction/fc7')
