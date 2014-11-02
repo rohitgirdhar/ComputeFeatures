@@ -4,9 +4,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import argparse
 import os
+import sys
 
 caffe_root = '/exports/cyclops/software/vision/caffe/'
-import sys
 sys.path.insert(0, caffe_root + 'python')
 
 parser = argparse.ArgumentParser()
@@ -36,22 +36,34 @@ net = caffe.Classifier(MODEL_FILE, PRETRAINED,
 net.set_phase_test()
 net.set_mode_cpu()
 
-files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(IMGS_DIR) for f in filenames]
+pwd = os.getcwd()
+os.chdir(IMGS_DIR)
+files = [os.path.join(dp, f) for dp, dn, filenames in os.walk('.') for f in filenames]
+os.chdir(pwd)
 
 if not os.path.isdir(OUT_DIR):
     os.makedirs(OUT_DIR)
-for fname in files:
-    fpath = os.path.join(IMGS_DIR, fname)
+
+count = 0
+for frpath in files:
+    fpath = os.path.join(IMGS_DIR, frpath)
     input_image = caffe.io.load_image(fpath)
     prediction = net.predict([input_image])
     if FEAT == 'prediction':
         feature = prediction.flat
     else:
-        feature = net.blobs[FEAT].data[1]; # Computing only 1 crop, by def is center crop
+        feature = net.blobs[FEAT].data[0]; # Computing only 1 crop, by def is center crop
         feature = feature.flat
-    fileBaseName, fext = os.path.splitext(fname)
-    fileBasePath, _ = os.path.splitext(fileBaseName)
-    os.makedirs(fileBasePath)
+    fileBaseName, fext = os.path.splitext(frpath)
+
+    # create the subdir to save output in
+    fileBasePath, _ = os.path.split(fileBaseName)
+    outRelDir = os.path.join(OUT_DIR, fileBasePath)
+    if not os.path.exists(outRelDir):
+        os.makedirs(outRelDir)
+
     out_fpath = os.path.join(OUT_DIR, fileBaseName + '.txt')
     np.savetxt(out_fpath, feature, '%.7f')
-    print 'Done for %s' % (fileBaseName)
+    count += 1
+    print 'Done for %s (%d / %d)' % (fileBaseName, count, len(files))
+
