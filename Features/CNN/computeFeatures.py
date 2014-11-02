@@ -26,7 +26,7 @@ import caffe
 
 # Set the right path to your model definition file, pretrained model weights,
 # and the image you would like to classify.
-MODEL_FILE = os.path.join(caffe_root, 'models/bvlc_reference_caffenet/deploy.prototxt')
+MODEL_FILE = os.path.join('/exports/cyclops/work/001_Selfies/001_ComputeFeatures/Features/CNN/deploy.prototxt')
 PRETRAINED = os.path.join(caffe_root, 'models/bvlc_reference_caffenet/bvlc_reference_caffenet.caffemodel')
 
 net = caffe.Classifier(MODEL_FILE, PRETRAINED,
@@ -48,7 +48,7 @@ for fname in files:
     if FEAT == 'prediction':
         feature = prediction.flat
     else:
-        feature = net.blobs[FEAT].data[4]; # index 4 is the center crop
+        feature = net.blobs[FEAT].data[1]; # Computing only 1 crop, by def is center crop
         feature = feature.flat
     fileBaseName, fext = os.path.splitext(fname)
     out_fpath = os.path.join(OUT_DIR, fileBaseName + '.txt')
