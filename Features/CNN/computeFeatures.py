@@ -36,8 +36,7 @@ net = caffe.Classifier(MODEL_FILE, PRETRAINED,
 net.set_phase_test()
 net.set_mode_cpu()
 
-files = [f for f in os.listdir(IMGS_DIR) if os.path.isfile(
-            os.path.join(IMGS_DIR, f))];
+files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(IMGS_DIR) for f in filenames]
 
 if not os.path.isdir(OUT_DIR):
     os.makedirs(OUT_DIR)
@@ -51,6 +50,8 @@ for fname in files:
         feature = net.blobs[FEAT].data[1]; # Computing only 1 crop, by def is center crop
         feature = feature.flat
     fileBaseName, fext = os.path.splitext(fname)
+    fileBasePath, _ = os.path.splitext(fileBaseName)
+    os.makedirs(fileBasePath)
     out_fpath = os.path.join(OUT_DIR, fileBaseName + '.txt')
     np.savetxt(out_fpath, feature, '%.7f')
     print 'Done for %s' % (fileBaseName)
