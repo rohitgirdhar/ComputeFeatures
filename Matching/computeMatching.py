@@ -14,8 +14,10 @@ args = parser.parse_args()
 FEAT_DIR = args.featuresdir
 OUT_DIR = args.outputdir
 
-files = [f for f in os.listdir(FEAT_DIR) if os.path.isfile(os.path.join(FEAT_DIR, f))]
-files = sorted(files)
+pwd = os.getcwd()
+os.chdir(FEAT_DIR)
+files = [os.path.join(dp, f) for dp, dn, filenames in os.walk('.') for f in filenames]
+os.chdir(pwd)
 nFiles = len(files)
 
 if not os.path.isdir(OUT_DIR):
