@@ -74,7 +74,7 @@ def main():
         np.savetxt(out_fpath, feature, '%.7f')
         count += 1
         
-        os.rmdir(lock_fpath)
+        rmdir_noerror(lock_fpath)
         print 'Done for %s (%d / %d)' % (fileBaseName, count, len(files))
 
 def mkdir_p(path):
@@ -84,6 +84,15 @@ def mkdir_p(path):
         if exc.errno == errno.EEXIST and os.path.isdir(path):
             pass
         else: raise
+
+def rmdir_noerror(path):
+    try:
+        os.rmdir(path)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
 
 if __name__ == '__main__':
     main()
