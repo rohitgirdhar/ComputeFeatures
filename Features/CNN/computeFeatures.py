@@ -47,6 +47,21 @@ if not os.path.isdir(OUT_DIR):
 count = 0
 for frpath in files:
     fpath = os.path.join(IMGS_DIR, frpath)
+    fileBaseName, fext = os.path.splitext(frpath)
+    fileBasePath, _ = os.path.split(fileBaseName)
+    out_fpath = os.path.join(OUT_DIR, fileBaseName + '.txt')
+    lock_fpath = os.path.join(OUT_DIR, fileBaseName + '.lock')
+
+    # create the subdir to save output in
+    outRelDir = os.path.join(OUT_DIR, fileBasePath)
+    if not os.path.exists(outRelDir):
+        os.makedirs(outRelDir)
+
+    if os.path.exists(lock_fpath) or os.path.exists(out_fpath):
+        print('Some other working on/done for %s\n' % fpath)
+        continue
+    
+    os.makedirs(lock_fpath)
     input_image = caffe.io.load_image(fpath)
     prediction = net.predict([input_image])
     if FEAT == 'prediction':
@@ -54,16 +69,10 @@ for frpath in files:
     else:
         feature = net.blobs[FEAT].data[0]; # Computing only 1 crop, by def is center crop
         feature = feature.flat
-    fileBaseName, fext = os.path.splitext(frpath)
 
-    # create the subdir to save output in
-    fileBasePath, _ = os.path.split(fileBaseName)
-    outRelDir = os.path.join(OUT_DIR, fileBasePath)
-    if not os.path.exists(outRelDir):
-        os.makedirs(outRelDir)
-
-    out_fpath = os.path.join(OUT_DIR, fileBaseName + '.txt')
     np.savetxt(out_fpath, feature, '%.7f')
     count += 1
+    
+    os.rmdir(lock_fpath)
     print 'Done for %s (%d / %d)' % (fileBaseName, count, len(files))
 
