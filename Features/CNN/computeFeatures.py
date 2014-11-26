@@ -47,6 +47,7 @@ def main():
 
     count = 0
     for frpath in files:
+        count += 1
         fpath = os.path.join(IMGS_DIR, frpath)
         fileBaseName, fext = os.path.splitext(frpath)
         fileBasePath, _ = os.path.split(fileBaseName)
@@ -72,7 +73,6 @@ def main():
             feature = feature.flat
 
         np.savetxt(out_fpath, feature, '%.7f')
-        count += 1
         
         rmdir_noerror(lock_fpath)
         print 'Done for %s (%d / %d)' % (fileBaseName, count, len(files))
@@ -92,7 +92,7 @@ def rmdir_noerror(path):
         if exc.errno == errno.EEXIST and os.path.isdir(path):
             pass
         else:
-            raise
+            pass
 
 if __name__ == '__main__':
     main()
