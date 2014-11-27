@@ -39,7 +39,7 @@ def main():
         OUT_PATH = os.path.join(SCORES_DIR, fname)
         LOCK_PATH = OUT_PATH + '.lock'
         if os.path.exists(LOCK_PATH) or os.path.exists(OUT_PATH):
-            print('%s already done\n', fname)
+            print('%s already done\n' % fname)
             continue
         mkdir_p(LOCK_PATH)
 
