@@ -6,11 +6,11 @@ import argparse
 import os, errno
 import sys
 import scipy
+caffe_root = '/exports/cyclops/software/vision/caffe/'
+sys.path.insert(0, caffe_root + 'python')
+import caffe
 
 def main():
-    caffe_root = '/exports/cyclops/software/vision/caffe/'
-    sys.path.insert(0, caffe_root + 'python')
-
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--imagesdir', type=str, required=True,
             help='Directory path with all the images to process')
@@ -28,7 +28,6 @@ def main():
     FEAT = args.feature
     SEGDIR = args.segments
 
-    import caffe
 
     # Set the right path to your model definition file, pretrained model weights,
     # and the image you would like to classify.
@@ -108,7 +107,6 @@ def rmdir_noerror(path):
             pass
 
 def segment_image(input_image, segdir, frpath, mean_image):
-    import caffe
     path = os.path.join(segdir, frpath)
     S = caffe.io.load_image(path)
     S = scipy.misc.imresize(S, np.shape(mean_image))
