@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import argparse
 import os, errno
 import sys
+import scipy
 
 def main():
     caffe_root = '/exports/cyclops/software/vision/caffe/'
@@ -15,6 +16,9 @@ def main():
             help='Directory path with all the images to process')
     parser.add_argument('-o', '--outputdir', type=str, required=True,
             help='Output directory')
+    parser.add_argument('-s', '--segments', type=str, default='',
+            help='''Path to folder that has segmentations. If this is specified,
+            will only compute in the background (black) regions of the segmentations''')
     parser.add_argument('-f', '--feature', type=str, default='prediction',
             help='could be prediction/fc7/pool5 etc')
 
@@ -22,6 +26,7 @@ def main():
     IMGS_DIR = args.imagesdir
     OUT_DIR = os.path.join(args.outputdir, args.feature)
     FEAT = args.feature
+    SEGDIR = args.segments
 
     import caffe
 
@@ -30,8 +35,10 @@ def main():
     MODEL_FILE = os.path.join('/exports/cyclops/work/001_Selfies/001_ComputeFeatures/Features/CNN/deploy.prototxt')
     PRETRAINED = os.path.join(caffe_root, 'models/bvlc_reference_caffenet/bvlc_reference_caffenet.caffemodel')
 
+    mean_image = np.load(caffe_root + 'python/caffe/imagenet/ilsvrc_2012_mean.npy')
+    mean_image_normal = mean_image.swapaxes(0,1).swapaxes(1,2)
     net = caffe.Classifier(MODEL_FILE, PRETRAINED,
-            mean=np.load(caffe_root + 'python/caffe/imagenet/ilsvrc_2012_mean.npy'),
+            mean=mean_image,
             channel_swap=(2,1,0), raw_scale=255, image_dims=(256, 256))
 
     net.set_phase_test()
@@ -60,11 +67,17 @@ def main():
             mkdir_p(outRelDir)
 
         if os.path.exists(lock_fpath) or os.path.exists(out_fpath):
-            print('Some other working on/done for %s\n' % fpath)
+            print('\tSome other working on/done for %s\n' % fpath)
             continue
         
         mkdir_p(lock_fpath)
         input_image = caffe.io.load_image(fpath)
+
+        # segment the image if required
+        if len(SEGDIR) > 0:
+            print('\tSegmenting image...\n')
+            input_image = segment_image(input_image, SEGDIR, frpath, mean_image_normal)
+
         prediction = net.predict([input_image])
         if FEAT == 'prediction':
             feature = prediction.flat
@@ -93,6 +106,16 @@ def rmdir_noerror(path):
             pass
         else:
             pass
+
+def segment_image(input_image, segdir, frpath, mean_image):
+    import caffe
+    path = os.path.join(segdir, frpath)
+    S = caffe.io.load_image(path)
+    S = scipy.misc.imresize(S, np.shape(mean_image))
+    input_image = scipy.misc.imresize(input_image, np.shape(mean_image))
+    input_image[S != 0] = mean_image[S != 0]
+    return input_image
+
 
 if __name__ == '__main__':
     main()
