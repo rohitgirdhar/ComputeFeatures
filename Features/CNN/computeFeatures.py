@@ -7,8 +7,11 @@ import os, errno
 import sys
 import scipy
 caffe_root = '/exports/cyclops/software/vision/caffe/'
-sys.path.insert(0, caffe_root + 'python')
+sys.path.append(caffe_root + 'python')
 import caffe
+PyOpenCV_ROOT = '/exports/cyclops/software/vision/opencv/lib/python2.7/dist-packages/'
+sys.path.append(PyOpenCV_ROOT)
+import cv2
 
 def main():
     parser = argparse.ArgumentParser()
@@ -19,6 +22,11 @@ def main():
     parser.add_argument('-s', '--segments', type=str, default='',
             help='''Path to folder that has segmentations. If this is specified,
             will only compute in the background (black) regions of the segmentations''')
+    parser.add_argument('-t', '--segment-type', type=str, default='mean',
+            help='''Set the method to fill the segmented image (this is only used when -s
+            is set). Can be 'mean' (default), 'inpaint'.''')
+    parser.add_argument('-d', '--dumpdir', type=str, default='',
+            help='Set this flag to path to store test images. Else not dumped.')
     parser.add_argument('-f', '--feature', type=str, default='prediction',
             help='could be prediction/fc7/pool5 etc')
 
@@ -27,6 +35,8 @@ def main():
     OUT_DIR = os.path.join(args.outputdir, args.feature)
     FEAT = args.feature
     SEGDIR = args.segments
+    DUMPDIR = args.dumpdir
+    SEGTYPE = args.segment_type
 
 
     # Set the right path to your model definition file, pretrained model weights,
@@ -74,8 +84,12 @@ def main():
 
         # segment the image if required
         if len(SEGDIR) > 0:
-            print('\tSegmenting image...\n')
-            input_image = segment_image(input_image, SEGDIR, frpath, mean_image_normal)
+            print('\tSegmenting image...')
+            input_image = segment_image(input_image, SEGDIR, frpath, mean_image_normal, SEGTYPE)
+            if len(DUMPDIR) > 0:
+                dumppath = os.path.join(DUMPDIR, fileBasePath)
+                mkdir_p(dumppath)
+                scipy.misc.imsave(os.path.join(DUMPDIR, fileBaseName + '.jpg'), input_image)
 
         prediction = net.predict([input_image])
         if FEAT == 'prediction':
@@ -106,7 +120,15 @@ def rmdir_noerror(path):
         else:
             pass
 
-def segment_image(input_image, segdir, frpath, mean_image):
+def segment_image(input_image, segdir, frpath, mean_image, segtype):
+    if segtype == 'mean':
+        return segment_image_mean(input_image, segdir, frpath, mean_image)
+    elif segtype == 'inpaint':
+        return segment_image_inpaint(input_image, segdir, frpath)
+    else:
+        sys.stderr.write('SEGTYPE ' + segtype + ' not implemented!\n')
+
+def segment_image_mean(input_image, segdir, frpath, mean_image):
     path = os.path.join(segdir, frpath)
     S = caffe.io.load_image(path)
     S = scipy.misc.imresize(S, np.shape(mean_image))
@@ -114,6 +136,12 @@ def segment_image(input_image, segdir, frpath, mean_image):
     input_image[S != 0] = mean_image[S != 0]
     return input_image
 
+def segment_image_inpaint(input_image, segdir, frpath):
+    path = os.path.join(segdir, frpath)
+    S = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+    input_image = scipy.misc.imresize(input_image, np.shape(S))
+    input_image = cv2.inpaint(input_image, S, 5, cv2.INPAINT_NS)
+    return input_image
 
 if __name__ == '__main__':
     main()
