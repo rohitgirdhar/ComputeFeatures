@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import argparse
 import os, errno
+import itertools
 import sys
 import scipy
 caffe_root = '/exports/cyclops/software/vision/caffe/'
@@ -12,6 +13,15 @@ import caffe
 PyOpenCV_ROOT = '/exports/cyclops/software/vision/opencv/lib/python2.7/dist-packages/'
 sys.path.append(PyOpenCV_ROOT)
 import cv2
+
+##### Some constants ######
+## For patches
+SPLIT_V = 4 # split the image vertically into this many pieces
+SPLIT_H = 4 # split the image horizontally into this many pieces
+SEG_OVERLAP_THRESH = 0.30 # select for computing features of segmented (foreground)
+                          # part less than this ratio
+###########################
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -104,7 +114,7 @@ def main():
                 feature = feature.flat
             features.append(np.array(feature))
 
-        feature = np.amax(np.array(features), axis=0)
+        feature = np.amax(np.array(features), axis=0) # MAX Pooling all the features
         np.savetxt(out_fpath, feature, '%.7f')
         
         rmdir_noerror(lock_fpath)
@@ -153,35 +163,26 @@ def segment_image_inpaint(input_image, segdir, frpath):
     return input_image
 
 def segment_image_patches(input_image, segdir, frpath):
-    patches = blockshaped_image(
-            scipy.misc.imresize(input_image, (256, 256, 3)),
-            64, 64)
+    path = os.path.join(segdir, frpath)
+    S = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+    input_image = scipy.misc.imresize(input_image, np.shape(S))
+    segPatches = split_image(S, SPLIT_V, SPLIT_H)
+    imgPatches = split_image(input_image, SPLIT_V, SPLIT_H)
+    # return patches that don't overlap with white regions in the seg
+    overlap = [np.count_nonzero(segPatch) * 1.0 / np.size(segPatch) for segPatch in segPatches]
+    select = [x <= SEG_OVERLAP_THRESH for x in overlap]
+    imgPatches = list(itertools.compress(imgPatches, select))
+    return imgPatches
+
+def split_image(input_image, nv, nh):
+    """
+    Splits the image into nv x nh patches
+    """
+    patches = []
+    vertPatches = np.array_split(input_image, nv, axis=1)
+    for patch in vertPatches:
+        patches += np.array_split(patch, nh, axis=0)
     return patches
-
-def blockshaped_image(input_image, nrows, ncols):
-    _, _, c = input_image.shape
-    images = []
-    for channel in range(c):
-        blocks = blockshaped(input_image[:, :, channel], nrows, ncols)
-        for im in range(len(blocks)):
-            if len(images) > im:
-                images[im] = np.dstack((images[im], blocks[im]))
-            else:
-                images.append(blocks[im])
-    return images
-
-def blockshaped(arr, nrows, ncols):
-    """
-    Return an array of shape (n, nrows, ncols) where
-    n * nrows * ncols = arr.size
-
-    If arr is a 2D array, the returned array should look like n subblocks with
-    each subblock preserving the "physical" layout of arr.
-    """
-    h, w = arr.shape
-    return (arr.reshape(h//nrows, nrows, -1, ncols)
-               .swapaxes(1,2)
-               .reshape(-1, nrows, ncols))
 
 if __name__ == '__main__':
     main()
