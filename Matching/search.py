@@ -67,7 +67,7 @@ def main():
         if not os.path.exists(os.path.join(OUT_DIR, icls, iname)):
             os.makedirs(os.path.join(OUT_DIR, icls, iname))
         np.savetxt(os.path.join(OUT_DIR, icls, iname, 'top.txt'), 
-                files_np[np.array(order)][1:20], fmt='%s', delimiter='\n')
+                files_np[np.array(order)][0:20], fmt='%s', delimiter='\n')
 
 def getClassAndName(fpath):
     # get the class and image name
