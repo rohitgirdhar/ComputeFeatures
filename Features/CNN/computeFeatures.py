@@ -80,7 +80,7 @@ def main():
             continue
         
         mkdir_p(lock_fpath)
-        input_image = caffe.io.load_image(fpath)
+        input_image = [caffe.io.load_image(fpath)]
 
         # segment the image if required
         if len(SEGDIR) > 0:
@@ -89,15 +89,22 @@ def main():
             if len(DUMPDIR) > 0:
                 dumppath = os.path.join(DUMPDIR, fileBasePath)
                 mkdir_p(dumppath)
-                scipy.misc.imsave(os.path.join(DUMPDIR, fileBaseName + '.jpg'), input_image)
+                for i in range(len(input_image)):
+                    scipy.misc.imsave(os.path.join(DUMPDIR, 
+                        fileBaseName + '_' + str(i) + '.jpg'), input_image[i])
 
-        prediction = net.predict([input_image])
-        if FEAT == 'prediction':
-            feature = prediction.flat
-        else:
-            feature = net.blobs[FEAT].data[0]; # Computing only 1 crop, by def is center crop
-            feature = feature.flat
+       
+        features = []
+        for img in input_image:
+            prediction = net.predict([img])
+            if FEAT == 'prediction':
+                feature = prediction.flat
+            else:
+                feature = net.blobs[FEAT].data[0]; # Computing only 1 crop, by def is center crop
+                feature = feature.flat
+            features.append(np.array(feature))
 
+        feature = np.amax(np.array(features), axis=0)
         np.savetxt(out_fpath, feature, '%.7f')
         
         rmdir_noerror(lock_fpath)
@@ -122,9 +129,11 @@ def rmdir_noerror(path):
 
 def segment_image(input_image, segdir, frpath, mean_image, segtype):
     if segtype == 'mean':
-        return segment_image_mean(input_image, segdir, frpath, mean_image)
+        return [segment_image_mean(input_image[0], segdir, frpath, mean_image)]
     elif segtype == 'inpaint':
-        return segment_image_inpaint(input_image, segdir, frpath)
+        return [segment_image_inpaint(input_image[0], segdir, frpath)]
+    elif segtype == 'patches':
+        return segment_image_patches(input_image[0], segdir, frpath)
     else:
         sys.stderr.write('SEGTYPE ' + segtype + ' not implemented!\n')
 
@@ -142,6 +151,37 @@ def segment_image_inpaint(input_image, segdir, frpath):
     input_image = scipy.misc.imresize(input_image, np.shape(S))
     input_image = cv2.inpaint(input_image, S, 5, cv2.INPAINT_NS)
     return input_image
+
+def segment_image_patches(input_image, segdir, frpath):
+    patches = blockshaped_image(
+            scipy.misc.imresize(input_image, (256, 256, 3)),
+            64, 64)
+    return patches
+
+def blockshaped_image(input_image, nrows, ncols):
+    _, _, c = input_image.shape
+    images = []
+    for channel in range(c):
+        blocks = blockshaped(input_image[:, :, channel], nrows, ncols)
+        for im in range(len(blocks)):
+            if len(images) > im:
+                images[im] = np.dstack((images[im], blocks[im]))
+            else:
+                images.append(blocks[im])
+    return images
+
+def blockshaped(arr, nrows, ncols):
+    """
+    Return an array of shape (n, nrows, ncols) where
+    n * nrows * ncols = arr.size
+
+    If arr is a 2D array, the returned array should look like n subblocks with
+    each subblock preserving the "physical" layout of arr.
+    """
+    h, w = arr.shape
+    return (arr.reshape(h//nrows, nrows, -1, ncols)
+               .swapaxes(1,2)
+               .reshape(-1, nrows, ncols))
 
 if __name__ == '__main__':
     main()
