@@ -32,6 +32,9 @@ def main():
         n = len(imgslist)
         for img in imgslist:
             with open(os.path.join(IN_DIR, img)) as f2:
+                if not f2:
+                    sys.stderr.write('Not found: %s.. continuing..\n' % img)
+                    continue
                 scores = [float(x) for x in f2.readlines()]
                 order = np.argsort(np.array(scores))
                 scores = sorted(scores)
