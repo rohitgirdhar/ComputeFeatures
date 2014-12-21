@@ -47,12 +47,16 @@ def main():
     for testfname in testfnames:
         print('Doing for %s\n' % testfname)
         icls, iname = getClassAndName(testfname)
+        out_fpath = os.path.join(OUT_DIR, icls, iname, 'top.txt')
+        if os.path.exists(out_fpath):
+            sys.stderr.write('Already done for %s\n' % out_fpath)
+            continue
 
         # check if pre-ranked list exists, and read the select list
         prerank_path = os.path.join(PRERANKED_DIR, icls, iname, 'top.txt')
 
         if not os.path.exists(prerank_path):
-            sys.stderr.write('Preranked files doesnt exist: %s\n\tContinuing..' 
+            sys.stderr.write('Preranked files doesnt exist: %s\n\tContinuing..\n' 
                     % prerank_path)
             continue
         # modify the feats and files list being used for this image
@@ -60,6 +64,10 @@ def main():
         preranked_list = f.readlines()
         preranked_list = sorted(list(map(lambda x: x.strip(), preranked_list)))
         preranked_list = preranked_list[0 : TAKE_N]
+        if not preranked_list:
+            sys.stderr.write('Preranked List empty for %s\n\tContinuing..\n'
+                    % prerank_path)
+            continue
 
         feats = readFeats(FEAT_DIR, preranked_list)
         files_np = np.array(preranked_list)
@@ -77,7 +85,6 @@ def main():
             os.makedirs(os.path.join(OUT_DIR, icls, iname))
 
         # write output to file
-        out_fpath = os.path.join(OUT_DIR, icls, iname, 'top.txt')
         if DUMP_SCORES:
             np.savetxt(out_fpath, 
                     np.rec.fromarrays((files_np[order][0 : TAKE_N], sorted(dists)), 
