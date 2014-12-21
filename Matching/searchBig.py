@@ -19,12 +19,15 @@ def main():
             in files specified in $DIR/fpath/top.txt''')
     parser.add_argument('-n', '--top-n', type=int, default=1000,
             help='''Number of top images to consider for feature matching''')
+    parser.add_argument('-s', '--dump-scores', action='store_const', default=False, 
+            const=True, help='''Set this to print the scores too in top.txt files''')
     args = parser.parse_args()
     FEAT_DIR = args.featuresdir
     OUT_DIR = args.outputdir
     TEST_FILE = args.testfile
     PRERANKED_DIR = args.initial_ranklist_dir
     TAKE_N = args.top_n
+    DUMP_SCORES = args.dump_scores
 
     pwd = os.getcwd()
     os.chdir(FEAT_DIR)
@@ -72,8 +75,16 @@ def main():
         order = np.argsort(dists)
         if not os.path.exists(os.path.join(OUT_DIR, icls, iname)):
             os.makedirs(os.path.join(OUT_DIR, icls, iname))
-        np.savetxt(os.path.join(OUT_DIR, icls, iname, 'top.txt'), 
-                files_np[order][0:50], fmt='%s', delimiter='\n')
+
+        # write output to file
+        out_fpath = os.path.join(OUT_DIR, icls, iname, 'top.txt')
+        if DUMP_SCORES:
+            np.savetxt(out_fpath, 
+                    np.rec.fromarrays((files_np[order][0 : TAKE_N], sorted(dists)), 
+                        names = ('name', 'score')),
+                    fmt='%s %.6f', delimiter='\n')
+        else:
+            np.savetxt(out_fpath, files_np[order][0 : TAKE_N], fmt='%s', delimiter='\n')
 
 def getClassAndName(fpath):
     # get the class and image name
