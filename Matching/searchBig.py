@@ -87,7 +87,7 @@ def main():
         # write output to file
         if DUMP_SCORES:
             np.savetxt(out_fpath, 
-                    np.rec.fromarrays((files_np[order][0 : TAKE_N], sorted(dists)), 
+                    np.rec.fromarrays((files_np[order][0 : TAKE_N], sorted(dists[0 : TAKE_N])), 
                         names = ('name', 'score')),
                     fmt='%s %.6f', delimiter='\n')
         else:

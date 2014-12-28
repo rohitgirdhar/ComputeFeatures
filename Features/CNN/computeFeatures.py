@@ -16,9 +16,9 @@ import cv2
 
 ##### Some constants ######
 ## For patches
-SPLIT_V = 4 # split the image vertically into this many pieces
-SPLIT_H = 4 # split the image horizontally into this many pieces
-SEG_OVERLAP_THRESH = 0.30 # select for computing features of segmented (foreground)
+SPLIT_V = 3 # split the image vertically into this many pieces
+SPLIT_H = 3 # split the image horizontally into this many pieces
+SEG_OVERLAP_THRESH = 100.00 # select for computing features of segmented (foreground)
                           # part less than this ratio
 ###########################
 
@@ -39,6 +39,8 @@ def main():
             help='Set this flag to path to store test images. Else not dumped.')
     parser.add_argument('-f', '--feature', type=str, default='prediction',
             help='could be prediction/fc7/pool5 etc')
+    parser.add_argument('-p', '--pooling-type', type=str, default='max',
+            help='specify type of pooling (max/avg)')
 
     args = parser.parse_args()
     IMGS_DIR = args.imagesdir
@@ -47,6 +49,7 @@ def main():
     SEGDIR = args.segments
     DUMPDIR = args.dumpdir
     SEGTYPE = args.segment_type
+    POOLTYPE = args.pooling_type
 
 
     # Set the right path to your model definition file, pretrained model weights,
@@ -103,10 +106,9 @@ def main():
                     scipy.misc.imsave(os.path.join(DUMPDIR, 
                         fileBaseName + '_' + str(i) + '.jpg'), input_image[i])
 
-       
         features = []
         for img in input_image:
-            prediction = net.predict([img])
+            prediction = net.predict([img], oversample=False)
             if FEAT == 'prediction':
                 feature = prediction.flat
             else:
@@ -114,7 +116,13 @@ def main():
                 feature = feature.flat
             features.append(np.array(feature))
 
-        feature = np.amax(np.array(features), axis=0) # MAX Pooling all the features
+        if POOLTYPE == 'max':
+            feature = np.amax(np.array(features), axis=0) # MAX Pooling all the features
+        elif POOLTYPE == 'avg':
+            print("NOTE: Using Avg Pooling")
+            feature = np.mean(np.array(features), axis=0) # AVG POOLING all features
+        else:
+            print('Pooling type %s not implemented!' % POOLTYPE)
         np.savetxt(out_fpath, feature, '%.7f')
         
         rmdir_noerror(lock_fpath)
@@ -144,6 +152,8 @@ def segment_image(input_image, segdir, frpath, mean_image, segtype):
         return [segment_image_inpaint(input_image[0], segdir, frpath)]
     elif segtype == 'patches':
         return segment_image_patches(input_image[0], segdir, frpath)
+    elif segtype == 'patches_sliding':
+        return segment_image_patches_sliding(input_image[0], segdir, frpath)
     else:
         sys.stderr.write('SEGTYPE ' + segtype + ' not implemented!\n')
 
@@ -161,6 +171,22 @@ def segment_image_inpaint(input_image, segdir, frpath):
     input_image = scipy.misc.imresize(input_image, np.shape(S))
     input_image = cv2.inpaint(input_image, S, 5, cv2.INPAINT_NS)
     return input_image
+
+def segment_image_patches_sliding(input_image, segdir, frpath):
+    # for now, simply make as many segments, ignore segmentation
+    initial_w, initial_h, _ = np.shape(input_image)
+    ratio = 256.0 / initial_h
+    if ratio > 0 and ratio < 1:
+       input_image = caffe.io.resize_image(input_image,
+               (round(initial_w * ratio), round(initial_h * ratio)))
+
+    patches = []
+    h, w, _ = np.shape(input_image)
+    sz = 128;
+    for i in range(0, max(h - sz + 1, 1), 8):
+        for j in range(0, max(w - sz + 1, 1), 8):
+            patches.append(input_image[i : min(i + sz + 1, h), j : min(j + sz + 1, w), :])
+    return patches
 
 def segment_image_patches(input_image, segdir, frpath):
     path = os.path.join(segdir, frpath)
