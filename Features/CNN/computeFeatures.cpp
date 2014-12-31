@@ -26,9 +26,9 @@ int main(int argc, char *argv[]) {
         ("help", "Show help")
     ;
     // TODO: Add the arguments
-    string NETWORK_PATH = "deploy2.prototxt";
+    string NETWORK_PATH = "deploy.prototxt";
     string MODEL_PATH = 
-        "/exports/cyclops/software/vision/caffe/models/bvlc_reference_caffenet/bvlc_reference_caffenet.caffemodel";
+        "/home/rgirdhar/work/03_temp/caffe_dev/models/bvlc_reference_caffenet/bvlc_reference_caffenet.caffemodel";
 
     NetParameter test_net_params;
     ReadProtoFromTextFile(NETWORK_PATH, &test_net_params);
@@ -37,18 +37,23 @@ int main(int argc, char *argv[]) {
     ReadProtoFromBinaryFile(MODEL_PATH, &trained_net_param);
     caffe_test_net.CopyTrainedLayersFrom(trained_net_param);
 
-    LOG(INFO) << "here" << endl;
     vector<Blob<float>*> blob_input_vec;
-    string fname = "/exports/cyclops/work/005_BgMatches/dataset/PeopleAtLandmarks/corpus/AbuSimbel/1.jpg";
+    string fname = "1.jpg";
     Mat I = imread(fname);
+    resize(I, I, Size(256, 256));
     vector<Datum> datum_vector;
     Datum datum;
     ReadImageToDatum(fname, 0, I.rows, I.cols, 1, &datum);
     datum_vector.push_back(datum);
 
-    const boost::shared_ptr<MemoryDataLayer<float> > memory_data_layer =
-        boost::static_pointer_cast<MemoryDataLayer<float> >(
-        caffe_test_net.layer_by_name("data2"));
+    vector<Mat> dv = {I};
+    vector<int> dvl = {0};
+    boost::dynamic_pointer_cast<caffe::MemoryDataLayer<float>>(caffe_test_net.layers()[0])->AddMatVector(dv,dvl);
+
+    
+    vector<Blob<float>*> dummy_bottom_vec;
+    float loss = 0.0f;
+    const vector<Blob<float>*>& result = caffe_test_net.Forward(dummy_bottom_vec, &loss);
     return 0;
 }
 
