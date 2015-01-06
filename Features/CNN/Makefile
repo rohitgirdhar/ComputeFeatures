@@ -5,7 +5,7 @@ CPU_ONLY := 0
 
 CXX += -std=c++0x
 LIBS += -L$(CAFFE_ROOT)/build/lib `pkg-config --libs opencv`
-LDFLAGS += -lcaffe -lglog -lboost_program_options
+LDFLAGS += -lcaffe -lglog -lboost_program_options -lboost_filesystem -lboost_system
 CPPFLAGS += `pkg-config --cflags opencv`
 INC += -I$(CAFFE_ROOT)/include/ -I$(CAFFE_ROOT)/build/src/
 ifneq ($(CPU_ONLY),1)
