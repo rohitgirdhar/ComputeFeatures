@@ -18,8 +18,9 @@ import cv2
 ## For patches
 SPLIT_V = 3 # split the image vertically into this many pieces
 SPLIT_H = 3 # split the image horizontally into this many pieces
-SEG_OVERLAP_THRESH = 100.00 # select for computing features of segmented (foreground)
+SEG_OVERLAP_THRESH = 0.30 # select for computing features if segmented (foreground)
                           # part less than this ratio
+RATIO_KEEP = 1 # ratio of patches to keep when removing on decreasing fg overlap
 ###########################
 
 
@@ -176,16 +177,26 @@ def segment_image_patches_sliding(input_image, segdir, frpath):
     # for now, simply make as many segments, ignore segmentation
     initial_w, initial_h, _ = np.shape(input_image)
     ratio = 256.0 / initial_h
+    path = os.path.join(segdir, frpath)
+    S = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
     if ratio > 0 and ratio < 1:
        input_image = caffe.io.resize_image(input_image,
                (round(initial_w * ratio), round(initial_h * ratio)))
+       S = scipy.misc.imresize(S,
+               (int(round(initial_w * ratio)), int(round(initial_h * ratio))))
 
     patches = []
     h, w, _ = np.shape(input_image)
-    sz = 128;
+    sz = 227;
     for i in range(0, max(h - sz + 1, 1), 8):
         for j in range(0, max(w - sz + 1, 1), 8):
-            patches.append(input_image[i : min(i + sz + 1, h), j : min(j + sz + 1, w), :])
+            segPatch = S[i : min(i + sz + 1, h), j : min(j + sz + 1, w)]
+            iPatch = input_image[i : min(i + sz + 1, h), j : min(j + sz + 1, w), :]
+            overlap = np.count_nonzero(segPatch) * 1.0 / np.size(segPatch)
+            patches.append((overlap, iPatch))
+    patches.sort(key = lambda x: x[0])
+    patches = patches[0 : int(RATIO_KEEP * len(patches))]
+    patches = [p[1] for p in patches]
     return patches
 
 def segment_image_patches(input_image, segdir, frpath):
