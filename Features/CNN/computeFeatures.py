@@ -60,6 +60,7 @@ def main():
 
     mean_image = np.load(caffe_root + 'python/caffe/imagenet/ilsvrc_2012_mean.npy')
     mean_image_normal = mean_image.swapaxes(0,1).swapaxes(1,2)
+    mean_image_normal = mean_image_normal / np.max(mean_image_normal) # since caffe images are double - 0 to 1
     net = caffe.Classifier(MODEL_FILE, PRETRAINED,
             mean=mean_image,
             channel_swap=(2,1,0), raw_scale=255, image_dims=(256, 256))
@@ -118,9 +119,10 @@ def main():
             features.append(np.array(feature))
 
         if POOLTYPE == 'max':
+            print("NOTE: Using MAX Pooling over %d features" % len(features))
             feature = np.amax(np.array(features), axis=0) # MAX Pooling all the features
         elif POOLTYPE == 'avg':
-            print("NOTE: Using Avg Pooling")
+            print("NOTE: Using Avg Pooling over %d features" % len(features))
             feature = np.mean(np.array(features), axis=0) # AVG POOLING all features
         else:
             print('Pooling type %s not implemented!' % POOLTYPE)
@@ -161,8 +163,9 @@ def segment_image(input_image, segdir, frpath, mean_image, segtype):
 def segment_image_mean(input_image, segdir, frpath, mean_image):
     path = os.path.join(segdir, frpath)
     S = caffe.io.load_image(path)
-    S = scipy.misc.imresize(S, np.shape(mean_image))
-    input_image = scipy.misc.imresize(input_image, np.shape(mean_image))
+    mean_w, mean_h, _ = np.shape(mean_image)
+    S = caffe.io.resize_image(S, (mean_w, mean_h))
+    input_image = caffe.io.resize_image(input_image, (mean_w, mean_h))
     input_image[S != 0] = mean_image[S != 0]
     return input_image
 
