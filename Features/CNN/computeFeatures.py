@@ -174,6 +174,7 @@ def segment_image_inpaint(input_image, segdir, frpath):
     S = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
     input_image = scipy.misc.imresize(input_image, np.shape(S))
     input_image = cv2.inpaint(input_image, S, 5, cv2.INPAINT_NS)
+    input_image = input_image.astype(float) / np.max(input_image)
     return input_image
 
 def segment_image_patches_sliding(input_image, segdir, frpath):
