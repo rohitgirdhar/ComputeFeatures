@@ -73,7 +73,6 @@ main(int argc, char *argv[]) {
     ReadProtoFromBinaryFile(MODEL_PATH.string(), &trained_net_param);
     caffe_test_net.CopyTrainedLayersFrom(trained_net_param);
     int BATCH_SIZE = caffe_test_net.blob_by_name("data")->num();
-    LOG(INFO) << BATCH_SIZE;
 
     // Get list of images in directory
     vector<fs::path> imgs;
@@ -85,10 +84,10 @@ main(int argc, char *argv[]) {
 
     vector<Mat> Is;
     for (auto imgpath : imgs) {
-        Mat I = imread(imgpath.string());
+        Mat I = imread((IMGSDIR / imgpath).string());
         if (!I.data) {
             LOG(ERROR) << "Unable to read image " << imgpath;
-            break;
+            return -1;
         }
         resize(I, I, Size(256, 256));
         Is.push_back(I);
@@ -142,6 +141,10 @@ void computeFeatures(Net<Dtype>& caffe_test_net,
     }
 }
 
+/**
+  * Function to return list of images in a directory (searched recursively).
+  * The output paths are w.r.t. the path imgsDir
+  */
 void genImgsList(const fs::path& imgsDir, vector<fs::path>& list) {
     if(!fs::exists(imgsDir) || !fs::is_directory(imgsDir)) return;
     vector<string> imgsExts = {".jpg", ".png", ".jpeg", ".JPEG", ".PNG", ".JPG"};
@@ -152,7 +155,9 @@ void genImgsList(const fs::path& imgsDir, vector<fs::path>& list) {
         if(fs::is_regular_file(*it) && 
                 find(imgsExts.begin(), imgsExts.end(), 
                     it->path().extension()) != imgsExts.end())
-            list.push_back(it->path().relative_path());
+            // write out paths but clip out the initial relative path from current dir 
+            list.push_back(fs::path(it->path().relative_path().string().
+                    substr(imgsDir.relative_path().string().length())));
         ++it;
     }
     LOG(INFO) << "Found " << list.size() << " image file(s) in " << imgsDir;
