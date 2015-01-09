@@ -31,18 +31,40 @@ main(int argc, char *argv[]) {
     #endif
     Caffe::set_phase(Caffe::TEST); // important, else will give random features
     
-    po::options_description desc("Allowed options:");
+    po::options_description desc("Allowed options");
     desc.add_options()
-        ("help", "Show help")
+        ("help,h", "Show this help")
+        ("network-path,n", po::value<string>()->required(),
+         "Path to the prototxt file")
+        ("model-path,m", po::value<string>()->required(),
+         "Path to corresponding caffemodel")
+        ("outdir,o", po::value<string>()->default_value("output"),
+         "Output directory")
+        ("layer,l", po::value<string>()->default_value("pool5"),
+         "CNN layer to extract features from")
+        ("imgsdir,i", po::value<string>()->required(),
+         "Input directory of images")
     ;
-    // TODO: Add the arguments
-    fs::path NETWORK_PATH = fs::path("deploy.prototxt");
+
+    po::variables_map vm;
+    po::store(po::command_line_parser(argc, argv).options(desc).run(), vm);
+    if (vm.count("help")) {
+        LOG(INFO) << desc;
+        return -1;
+    }
+    try {
+        po::notify(vm);
+    } catch(po::error& e) {
+        LOG(ERROR) << e.what();
+        return -1;
+    }
+
+    fs::path NETWORK_PATH = fs::path(vm["network-path"].as<string>());
     fs::path MODEL_PATH = 
-        fs::path("/home/rgirdhar/work/03_temp/caffe_dev/models/bvlc_reference_caffenet/bvlc_reference_caffenet.caffemodel");
-    string LAYER = "pool5";
-    fs::path OUTDIR = fs::path("output");
-    fs::path IMGSDIR = fs::path("imgs/PeopleAtLandmarks/corpus/");
-    int BATCH_SIZE = 50; // read it from NetParameters
+        fs::path(vm["model-path"].as<string>());
+    string LAYER = vm["layer"].as<string>();
+    fs::path OUTDIR = fs::path(vm["outdir"].as<string>());
+    fs::path IMGSDIR = fs::path(vm["imgsdir"].as<string>());
  
     NetParameter test_net_params;
     ReadProtoFromTextFile(NETWORK_PATH.string(), &test_net_params);
@@ -50,6 +72,8 @@ main(int argc, char *argv[]) {
     NetParameter trained_net_param;
     ReadProtoFromBinaryFile(MODEL_PATH.string(), &trained_net_param);
     caffe_test_net.CopyTrainedLayersFrom(trained_net_param);
+    int BATCH_SIZE = caffe_test_net.blob_by_name("data")->num();
+    LOG(INFO) << BATCH_SIZE;
 
     // Get list of images in directory
     vector<fs::path> imgs;
