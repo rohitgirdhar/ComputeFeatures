@@ -1,3 +1,6 @@
 [submodule "Features/CNN/external/caffe_dev_MemLayerWithMat"]
 	path = Features/CNN/external/caffe_dev_MemLayerWithMat
 	url = git@github.com:rohitgirdhar-cmu-experimental/caffe_dev_MemLayerWithMat.git
+[submodule "Features/CNN/external/DiskVector"]
+	path = Features/CNN/external/DiskVector
+	url = git@github.com:rohitgirdhar-cmu-experimental/DiskVector.git

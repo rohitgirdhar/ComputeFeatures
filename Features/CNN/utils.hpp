@@ -89,5 +89,19 @@ void readBBoxesSelSearch(const fs::path& fpath, vector<Rect>& output) {
   ifs.close();
 }
 
+/**
+ * Read any list of Dtype element separated by a whitespace delimitter.
+ */
+template<typename Dtype>
+void readList(const fs::path& fpath, vector<Dtype>& output) {
+    output.clear();
+      Dtype el;
+        ifstream ifs(fpath.string());
+          while (ifs >> el) {
+                output.push_back(el);
+                  }
+            ifs.close();
+}
+
 #endif
 

@@ -10,6 +10,7 @@
 #include <boost/algorithm/string.hpp> // for to_lower
 #include "caffe/caffe.hpp"
 #include "utils.hpp"
+#include "external/DiskVector/DiskVector.hpp"
 
 using namespace std;
 using namespace caffe;
@@ -42,6 +43,8 @@ main(int argc, char *argv[]) {
      "CNN layer to extract features from")
     ("imgsdir,i", po::value<string>()->required(),
      "Input directory of images")
+    ("imgslst,q", po::value<string>()->required(),
+     "List of images relative to input directory")
     ("windir,w", po::value<string>()->default_value(""),
      "Input directory of all windows in each image (selective search format: y1 x1 y2 x2)")
     ;
@@ -65,6 +68,7 @@ main(int argc, char *argv[]) {
   string LAYER = vm["layer"].as<string>();
   fs::path OUTDIR = fs::path(vm["outdir"].as<string>());
   fs::path IMGSDIR = fs::path(vm["imgsdir"].as<string>());
+  fs::path IMGSLST = fs::path(vm["imgslst"].as<string>());
   fs::path WINDIR = fs::path(vm["windir"].as<string>());
 
   NetParameter test_net_params;
@@ -77,8 +81,8 @@ main(int argc, char *argv[]) {
 
   // Get list of images in directory
   vector<fs::path> imgs;
-  genImgsList(IMGSDIR, imgs);
-
+  readList<fs::path>(IMGSLST, imgs);
+  
   // Create output directory
   fs::path FEAT_OUTDIR = OUTDIR / fs::path(LAYER.c_str());
   fs::create_directories(FEAT_OUTDIR);
@@ -111,7 +115,8 @@ main(int argc, char *argv[]) {
     }
     vector<vector<float>> output;
     computeFeatures<float>(caffe_test_net, Is, LAYER, BATCH_SIZE, output);
-    // Dump output
+    // text output
+    /*
     fs::path outFile = fs::change_extension(FEAT_OUTDIR / imgpath, ".txt");
     fs::create_directories(outFile.parent_path());
     FILE* fout = fopen(outFile.string().c_str(), "w");
@@ -119,6 +124,13 @@ main(int argc, char *argv[]) {
       dumpFeature(fout, output[i]);
     }
     fclose(fout);
+    */
+    // output into a DiskVector
+    DiskVector<vector<float>> dv(OUTDIR / imgpath);
+    for (int i = 0; i < output.size(); i++) {
+      dv.Put(i, output[i]);
+    }
+    LOG(INFO) << "Done for " << imgpath << endl;
   }
 
   return 0;
