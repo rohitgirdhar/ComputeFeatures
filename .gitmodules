@@ -1,0 +1,3 @@
+[submodule "Features/CNN/external/caffe_dev_MemLayerWithMat"]
+	path = Features/CNN/external/caffe_dev_MemLayerWithMat
+	url = git@github.com:rohitgirdhar-cmu-experimental/caffe_dev_MemLayerWithMat.git
