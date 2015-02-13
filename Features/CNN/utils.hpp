@@ -67,5 +67,27 @@ void genImgsList(const fs::path& imgsDir, vector<fs::path>& list) {
     LOG(INFO) << "Found " << list.size() << " image file(s) in " << imgsDir;
 }
 
+/**
+ * Read bbox from file in selsearch format (y1 x1 y2 x2)
+ */
+template<typename Dtype>
+void readBBoxesSelSearch(const fs::path& fpath, vector<Rect>& output) {
+  Dtype x1, x2, y1, y2;
+  output.clear();
+  ifstream ifs(fpath.string());
+  if (!ifs.is_open()) {
+    LOG(ERROR) << "Unable to open file " << fpath.string();
+    return;
+  }
+  string line;
+  while (getline(ifs, line)) {
+    replace(line.begin(), line.end(), ',', ' ');
+    istringstream iss(line);
+    iss >> y1 >> x1 >> y2 >> x2;
+    output.push_back(Rect(x1, y1, x2 - x1, y2 - y1)); 
+  }
+  ifs.close();
+}
+
 #endif
 
