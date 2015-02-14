@@ -11,6 +11,7 @@
 #include "caffe/caffe.hpp"
 #include "utils.hpp"
 #include "external/DiskVector/DiskVector.hpp"
+#include "lock.hpp"
 
 using namespace std;
 using namespace caffe;
@@ -87,11 +88,16 @@ main(int argc, char *argv[]) {
   fs::path FEAT_OUTDIR = OUTDIR / fs::path(LAYER.c_str());
   fs::create_directories(FEAT_OUTDIR);
 
-  vector<Mat> Is;
-  int imgid = 0;
-  for (auto imgpath : imgs) {
-    imgid++;
-    Is.clear();
+  for (int imgid = 1; imgid <= imgs.size(); imgid++) {
+    fs::path imgpath = imgs[imgid - 1];
+    fs::path outpath = OUTDIR / imgpath;
+
+    // lock this file
+    if (!lock(outpath)) {
+      continue;
+    }
+
+    vector<Mat> Is;
     Mat I = imread((IMGSDIR / imgpath).string());
     if (!I.data) {
       LOG(ERROR) << "Unable to read " << imgpath;
@@ -105,7 +111,6 @@ main(int argc, char *argv[]) {
     }
     if (!I.data) {
       LOG(ERROR) << "Unable to read image " << imgpath;
-      return -1;
     }
     // push in all subwindows
     for (int i = 0; i < bboxes.size(); i++) {
@@ -126,11 +131,12 @@ main(int argc, char *argv[]) {
     fclose(fout);
     */
     // output into a DiskVector
-    DiskVector<vector<float>> dv(OUTDIR / imgpath);
+    DiskVector<vector<float>> dv(outpath);
     for (int i = 0; i < output.size(); i++) {
       dv.Put(i, output[i]);
     }
     LOG(INFO) << "Done for " << imgpath << endl;
+    unlock(outpath);
   }
 
   return 0;
