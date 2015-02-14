@@ -105,7 +105,7 @@ main(int argc, char *argv[]) {
     }
     vector<Rect> bboxes;
     if (WINDIR.string().size() > 0) {
-      readBBoxesSelSearch<float>((WINDIR / (to_string(imgid) + ".txt")).string(), bboxes);
+      readBBoxesSelSearch<float>((WINDIR / (to_string((long long)imgid) + ".txt")).string(), bboxes);
     } else {
       bboxes.push_back(Rect(0, 0, I.cols, I.rows)); // full image
     }
@@ -143,8 +143,8 @@ main(int argc, char *argv[]) {
 }
 
 inline void dumpFeature(FILE* fout, const vector<float>& feat) {
-  for (auto feati : feat) {
-    fprintf(fout, "%f ", feati);
+  for (int i = 0; i < feat.size(); i++) {
+    fprintf(fout, "%f ", feat[i]);
   }
   fprintf(fout, "\n");
 }
