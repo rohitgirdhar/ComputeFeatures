@@ -84,7 +84,7 @@ void readBBoxesSelSearch(const fs::path& fpath, vector<Rect>& output) {
     replace(line.begin(), line.end(), ',', ' ');
     istringstream iss(line);
     iss >> y1 >> x1 >> y2 >> x2;
-    output.push_back(Rect(x1, y1, x2 - x1, y2 - y1)); 
+    output.push_back(Rect(x1 - 1, y1 - 1, x2 - x1, y2 - y1)); 
   }
   ifs.close();
 }

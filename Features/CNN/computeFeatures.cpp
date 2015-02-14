@@ -85,8 +85,8 @@ main(int argc, char *argv[]) {
   readList<fs::path>(IMGSLST, imgs);
   
   // Create output directory
-  fs::path FEAT_OUTDIR = OUTDIR / fs::path(LAYER.c_str());
-  fs::create_directories(FEAT_OUTDIR);
+  //fs::path FEAT_OUTDIR = OUTDIR / fs::path(LAYER.c_str());
+  //fs::create_directories(FEAT_OUTDIR);
 
   for (int imgid = 1; imgid <= imgs.size(); imgid++) {
     fs::path imgpath = imgs[imgid - 1];
@@ -96,6 +96,7 @@ main(int argc, char *argv[]) {
     if (!lock(outpath)) {
       continue;
     }
+    LOG(INFO) << "Doing for " << imgpath << "...";
 
     vector<Mat> Is;
     Mat I = imread((IMGSDIR / imgpath).string());
@@ -114,6 +115,8 @@ main(int argc, char *argv[]) {
     }
     // push in all subwindows
     for (int i = 0; i < bboxes.size(); i++) {
+      // LOG(INFO) << I.cols << " " << I.rows;
+      // LOG(INFO) << bboxes[i].x << " " << bboxes[i].y << " " << bboxes[i].width << " " << bboxes[i].height;
       Mat Itemp  = I(bboxes[i]);
       resize(Itemp, Itemp, Size(256, 256));
       Is.push_back(Itemp);
@@ -135,7 +138,7 @@ main(int argc, char *argv[]) {
     for (int i = 0; i < output.size(); i++) {
       dv.Put(i, output[i]);
     }
-    LOG(INFO) << "Done for " << imgpath << endl;
+    LOG(INFO) << "Done";
     unlock(outpath);
   }
 
