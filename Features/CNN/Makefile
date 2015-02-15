@@ -6,9 +6,9 @@ CUDA_ROOT := /usr/local/cuda
 #LIBS += -L$(CAFFE_INSTALL_DIR)/gflags_install/lib -L$(CAFFE_INSTALL_DIR)/glog_install/lib -L$(CAFFE_INSTALL_DIR)/mdb_install/lib -L ~/software/boost/libs
 CPU_ONLY := 0
 
+CXXFLAGS += -std=c++0x -fopenmp -O2 -g
 LIBS += -L$(CAFFE_ROOT)/build/lib -L/usr/local/lib/
 LDFLAGS += -lcaffe -lglog -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization
-CPPFLAGS += -O2 -g
 INC += -I$(CAFFE_ROOT)/include/ -I$(CAFFE_ROOT)/build/src/ -I/usr/local/include/opencv2/
 ifneq ($(CPU_ONLY),1)
     LIBS += -L$(CUDA_ROOT)/lib64
@@ -21,12 +21,12 @@ endif
 all: $(patsubst %.cpp, %.bin, $(wildcard *.cpp))
 
 %.bin: %.cpp Makefile utils.hpp
-	$(CXX) -std=c++0x \
-        $(INC) \
-		$(CPPFLAGS) \
+	$(CXX)  \
+		$(CXXFLAGS) \
+    $(INC) \
 		$< -o $@ \
 		$(LIBS) \
-		$(LDFLAGS) \
+		$(LDFLAGS) 
 
 clean:
 	rm -rf *.bin

@@ -19,7 +19,10 @@ using namespace cv;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
+#define MAXFEATPERIMG 10000
+
 void dumpFeature(FILE*, const vector<float>&);
+int hashCompleteName(int, int);
 
 int
 main(int argc, char *argv[]) {
@@ -88,14 +91,17 @@ main(int argc, char *argv[]) {
   //fs::path FEAT_OUTDIR = OUTDIR / fs::path(LAYER.c_str());
   //fs::create_directories(FEAT_OUTDIR);
 
+  DiskVector<vector<float>> dv(OUTDIR);
   for (int imgid = 1; imgid <= imgs.size(); imgid++) {
     fs::path imgpath = imgs[imgid - 1];
-    fs::path outpath = OUTDIR / imgpath;
+//    fs::path outpath = OUTDIR / imgpath;
 
     // lock this file
+    /*
     if (!lock(outpath)) {
       continue;
     }
+    */
     LOG(INFO) << "Doing for " << imgpath << "...";
 
     vector<Mat> Is;
@@ -123,6 +129,7 @@ main(int argc, char *argv[]) {
     }
     vector<vector<float>> output;
     computeFeatures<float>(caffe_test_net, Is, LAYER, BATCH_SIZE, output);
+    l2NormalizeFeatures(output);
     // text output
     /*
     fs::path outFile = fs::change_extension(FEAT_OUTDIR / imgpath, ".txt");
@@ -134,12 +141,12 @@ main(int argc, char *argv[]) {
     fclose(fout);
     */
     // output into a DiskVector
-    DiskVector<vector<float>> dv(outpath);
     for (int i = 0; i < output.size(); i++) {
-      dv.Put(i, output[i]);
+      dv.Put(hashCompleteName(imgid, i), output[i]);
     }
-    LOG(INFO) << "Done";
+    /*
     unlock(outpath);
+    */
   }
 
   return 0;
@@ -150,5 +157,9 @@ inline void dumpFeature(FILE* fout, const vector<float>& feat) {
     fprintf(fout, "%f ", feat[i]);
   }
   fprintf(fout, "\n");
+}
+
+inline int hashCompleteName(int imgid, int id) {
+  return (imgid - 1) * MAXFEATPERIMG + id;
 }
 

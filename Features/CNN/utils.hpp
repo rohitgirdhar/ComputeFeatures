@@ -41,7 +41,7 @@ void computeFeatures(Net<Dtype>& caffe_test_net,
       Dtype* feat_data = feat->mutable_cpu_data() + feat->offset(i);
       output.push_back(vector<Dtype>(feat_data, feat_data + feat->count() / feat->num()));
     }
-    LOG(INFO) << "Batch " << batch << " (" << actBatchSize << " images) done";
+    LOG(INFO) << "Batch " << batch << "/" << nBatches << " (" << actBatchSize << " images) done";
   }
 }
 
@@ -94,13 +94,28 @@ void readBBoxesSelSearch(const fs::path& fpath, vector<Rect>& output) {
  */
 template<typename Dtype>
 void readList(const fs::path& fpath, vector<Dtype>& output) {
-    output.clear();
-      Dtype el;
-        ifstream ifs(fpath.string());
-          while (ifs >> el) {
-                output.push_back(el);
-                  }
-            ifs.close();
+  output.clear();
+  Dtype el;
+  ifstream ifs(fpath.string());
+  while (ifs >> el) {
+    output.push_back(el);
+  }
+  ifs.close();
+}
+
+template<typename Dtype>
+void l2NormalizeFeatures(vector<vector<Dtype>>& feats) {
+  #pragma omp parallel for
+  for (int i = 0; i < feats.size(); i++) {
+    Dtype l2norm = 0;
+    for (auto el = feats[i].begin(); el != feats[i].end(); el++) {
+      l2norm += (*el) * (*el);
+    }
+    l2norm = sqrt(l2norm);
+    for (int j = 0; j < feats[i].size(); j++) {
+      feats[i][j] = feats[i][j] / l2norm;
+    }
+  } 
 }
 
 #endif
