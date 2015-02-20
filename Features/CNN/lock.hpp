@@ -19,7 +19,7 @@ bool lock(fs::path fpath) {
 
 bool unlock(fs::path fpath) {
     fs::path lock_fpath = fs::path(fpath.string() + ".lock");
-    if (!fs::exists(lock_fpath) || !fs::exists(fpath)) return false;
+    if (!fs::exists(lock_fpath)) return false;
     return fs::remove(lock_fpath);
 }
 

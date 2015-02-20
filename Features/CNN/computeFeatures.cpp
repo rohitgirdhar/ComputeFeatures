@@ -10,7 +10,8 @@
 #include <boost/algorithm/string.hpp> // for to_lower
 #include "caffe/caffe.hpp"
 #include "utils.hpp"
-#include "external/DiskVector/DiskVector.hpp"
+//#include "external/DiskVector/DiskVector.hpp"
+#include "external/DiskVector/DiskVectorLMDB.hpp"
 #include "lock.hpp"
 
 using namespace std;
@@ -51,6 +52,10 @@ main(int argc, char *argv[]) {
      "List of images relative to input directory")
     ("windir,w", po::value<string>()->default_value(""),
      "Input directory of all windows in each image (selective search format: y1 x1 y2 x2)")
+    ("output-type,t", po::value<string>()->default_value("lmdb"),
+     "Output format [txt/lmdb]")
+    ("normalize,y", po::bool_switch()->default_value(false),
+     "Enable feature L2 normalization")
     ;
 
   po::variables_map vm;
@@ -74,6 +79,8 @@ main(int argc, char *argv[]) {
   fs::path IMGSDIR = fs::path(vm["imgsdir"].as<string>());
   fs::path IMGSLST = fs::path(vm["imgslst"].as<string>());
   fs::path WINDIR = fs::path(vm["windir"].as<string>());
+  string OUTTYPE = vm["output-type"].as<string>();
+  bool NORMALIZE = vm["normalize"].as<bool>();
 
   NetParameter test_net_params;
   ReadProtoFromTextFile(NETWORK_PATH.string(), &test_net_params);
@@ -91,17 +98,14 @@ main(int argc, char *argv[]) {
   //fs::path FEAT_OUTDIR = OUTDIR / fs::path(LAYER.c_str());
   //fs::create_directories(FEAT_OUTDIR);
 
-  DiskVector<vector<float>> dv(OUTDIR);
+  std::shared_ptr<DiskVectorLMDB<vector<float>>> dv;
+  if (OUTTYPE.compare("lmdb") == 0) {
+    dv = std::shared_ptr<DiskVectorLMDB<vector<float>>>(
+        new DiskVectorLMDB<vector<float>>(OUTDIR));
+  }
   for (int imgid = 1; imgid <= imgs.size(); imgid++) {
     fs::path imgpath = imgs[imgid - 1];
-//    fs::path outpath = OUTDIR / imgpath;
 
-    // lock this file
-    /*
-    if (!lock(outpath)) {
-      continue;
-    }
-    */
     LOG(INFO) << "Doing for " << imgpath << "...";
 
     vector<Mat> Is;
@@ -128,25 +132,39 @@ main(int argc, char *argv[]) {
       Is.push_back(Itemp);
     }
     vector<vector<float>> output;
-    computeFeatures<float>(caffe_test_net, Is, LAYER, BATCH_SIZE, output);
-    l2NormalizeFeatures(output);
-    // text output
-    /*
-    fs::path outFile = fs::change_extension(FEAT_OUTDIR / imgpath, ".txt");
-    fs::create_directories(outFile.parent_path());
-    FILE* fout = fopen(outFile.string().c_str(), "w");
-    for (int i = 0; i < output.size(); i++) {
-      dumpFeature(fout, output[i]);
+    /**
+     * Separately computing features for either case of text/lmdb because 
+     * can using locking (and run parallel) for text output
+     */
+    if (OUTTYPE.compare("text") == 0) {
+      fs::path outpath = OUTDIR / imgpath;
+      if (!lock(outpath)) {
+        continue;
+      }
+      computeFeatures<float>(caffe_test_net, Is, LAYER, BATCH_SIZE, output);
+      if (NORMALIZE) {
+        l2NormalizeFeatures(output);
+      }
+      fs::path outFile = fs::change_extension(OUTDIR / imgpath, ".txt");
+      fs::create_directories(outFile.parent_path());
+      FILE* fout = fopen(outFile.string().c_str(), "w");
+      for (int i = 0; i < output.size(); i++) {
+        dumpFeature(fout, output[i]);
+      }
+      unlock(outpath);
+      fclose(fout);
+    } else if (OUTTYPE.compare("lmdb") == 0) {
+      computeFeatures<float>(caffe_test_net, Is, LAYER, BATCH_SIZE, output);
+      if (NORMALIZE) {
+        l2NormalizeFeatures(output);
+      }
+      // output into a DiskVector
+      for (int i = 0; i < output.size(); i++) {
+        dv->Put(hashCompleteName(imgid, i), output[i]);
+      }
+    } else {
+      LOG(ERROR) << "Unrecognized output type " << OUTTYPE << endl;
     }
-    fclose(fout);
-    */
-    // output into a DiskVector
-    for (int i = 0; i < output.size(); i++) {
-      dv.Put(hashCompleteName(imgid, i), output[i]);
-    }
-    /*
-    unlock(outpath);
-    */
   }
 
   return 0;
@@ -154,7 +172,11 @@ main(int argc, char *argv[]) {
 
 inline void dumpFeature(FILE* fout, const vector<float>& feat) {
   for (int i = 0; i < feat.size(); i++) {
-    fprintf(fout, "%f ", feat[i]);
+    if (feat[i] == 0) {
+      fprintf(fout, "0 ");
+    } else {
+      fprintf(fout, "%f ", feat[i]);
+    }
   }
   fprintf(fout, "\n");
 }
