@@ -137,21 +137,20 @@ main(int argc, char *argv[]) {
      * can using locking (and run parallel) for text output
      */
     if (OUTTYPE.compare("text") == 0) {
-      fs::path outpath = OUTDIR / imgpath;
-      if (!lock(outpath)) {
+      fs::path outFile = fs::change_extension(OUTDIR / imgpath, ".txt");
+      if (!lock(outFile)) {
         continue;
       }
       computeFeatures<float>(caffe_test_net, Is, LAYER, BATCH_SIZE, output);
       if (NORMALIZE) {
         l2NormalizeFeatures(output);
       }
-      fs::path outFile = fs::change_extension(OUTDIR / imgpath, ".txt");
       fs::create_directories(outFile.parent_path());
       FILE* fout = fopen(outFile.string().c_str(), "w");
       for (int i = 0; i < output.size(); i++) {
         dumpFeature(fout, output[i]);
       }
-      unlock(outpath);
+      unlock(outFile);
       fclose(fout);
     } else if (OUTTYPE.compare("lmdb") == 0) {
       computeFeatures<float>(caffe_test_net, Is, LAYER, BATCH_SIZE, output);
