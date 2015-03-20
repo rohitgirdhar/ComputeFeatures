@@ -23,7 +23,7 @@ namespace fs = boost::filesystem;
 #define MAXFEATPERIMG 10000
 
 void dumpFeature(FILE*, const vector<float>&);
-int hashCompleteName(int, int);
+long long hashCompleteName(long long, int);
 
 int
 main(int argc, char *argv[]) {
@@ -51,7 +51,7 @@ main(int argc, char *argv[]) {
     ("imgslst,q", po::value<string>()->required(),
      "List of images relative to input directory")
     ("windir,w", po::value<string>()->default_value(""),
-     "Input directory of all windows in each image (selective search format: y1 x1 y2 x2)")
+     "Input directory of all windows in each image (selective search format: y1 x1 y2 x2). Defaults to full image features.")
     ("output-type,t", po::value<string>()->default_value("lmdb"),
      "Output format [txt/lmdb]")
     ("normalize,y", po::bool_switch()->default_value(false),
@@ -94,16 +94,13 @@ main(int argc, char *argv[]) {
   vector<fs::path> imgs;
   readList<fs::path>(IMGSLST, imgs);
   
-  // Create output directory
-  //fs::path FEAT_OUTDIR = OUTDIR / fs::path(LAYER.c_str());
-  //fs::create_directories(FEAT_OUTDIR);
-
   std::shared_ptr<DiskVectorLMDB<vector<float>>> dv;
   if (OUTTYPE.compare("lmdb") == 0) {
     dv = std::shared_ptr<DiskVectorLMDB<vector<float>>>(
         new DiskVectorLMDB<vector<float>>(OUTDIR));
   }
-  for (int imgid = 1; imgid <= imgs.size(); imgid++) {
+  // Create output directory
+  for (long long imgid = 1; imgid <= imgs.size(); imgid++) {
     fs::path imgpath = imgs[imgid - 1];
 
     LOG(INFO) << "Doing for " << imgpath << "...";
@@ -125,8 +122,6 @@ main(int argc, char *argv[]) {
     }
     // push in all subwindows
     for (int i = 0; i < bboxes.size(); i++) {
-      // LOG(INFO) << I.cols << " " << I.rows;
-      // LOG(INFO) << bboxes[i].x << " " << bboxes[i].y << " " << bboxes[i].width << " " << bboxes[i].height;
       Mat Itemp  = I(bboxes[i]);
       resize(Itemp, Itemp, Size(256, 256));
       Is.push_back(Itemp);
@@ -180,7 +175,7 @@ inline void dumpFeature(FILE* fout, const vector<float>& feat) {
   fprintf(fout, "\n");
 }
 
-inline int hashCompleteName(int imgid, int id) {
+inline long long hashCompleteName(long long imgid, int id) {
   return (imgid - 1) * MAXFEATPERIMG + id;
 }
 

@@ -20,7 +20,7 @@ endif
 
 all: $(patsubst %.cpp, %.bin, $(wildcard *.cpp))
 
-%.bin: %.cpp Makefile utils.hpp
+%.bin: %.cpp Makefile utils.hpp external/DiskVector/DiskVectorLMDB.hpp
 	$(CXX)  \
 		$(CXXFLAGS) \
     $(INC) \
