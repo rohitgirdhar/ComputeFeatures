@@ -13,6 +13,8 @@
 #include "external/DiskVector/DiskVectorLMDB.hpp"
 #include "lock.hpp"
 
+#define MAXFEATPERIMG 10000
+
 using namespace std;
 using namespace caffe;
 using namespace cv;
@@ -31,6 +33,7 @@ void computeAndStore(const vector<Mat>& Is,
     std::shared_ptr<DiskVectorLMDB<vector<float>>> dv,
     const string& OUTTYPE,
     bool NORMALIZE);
+long long getHash(long long id);
 
 
 int
@@ -113,19 +116,18 @@ main(int argc, char *argv[]) {
     fs::path imgpath = imgs[imgid - 1];
     imgpaths.push_back(imgpath);
 
-    LOG(INFO) << "Doing for " << imgpath << "...";
-
     Mat I = imread((IMGSDIR / imgpath).string());
     if (!I.data) {
       LOG(ERROR) << "Unable to read " << imgpath;
       continue;
     }
+    resize(I, I, Size(256, 256));
     Is.push_back(I);
     if (Is.size() >= BATCH_SIZE) {
       computeAndStore(Is, imgids, imgpaths,
           caffe_test_net, LAYER, OUTDIR,
           BATCH_SIZE, dv, OUTTYPE, NORMALIZE);
-      imgs.clear();
+      Is.clear();
       imgids.clear();
       imgpaths.clear();
       LOG(INFO) << "Done uptil " << imgid;
@@ -175,10 +177,14 @@ void computeAndStore(const vector<Mat>& Is,
   } else if (OUTTYPE.compare("lmdb") == 0) {
     // output into the DiskVector
     for (int i = 0; i < output.size(); i++) {
-      dv->Put(imgids[i], output[i]);
+      dv->Put(getHash(imgids[i]), output[i]);
     }
   } else {
     LOG(ERROR) << "Unrecognized output type " << OUTTYPE << endl;
   }
+}
+
+long long getHash(long long id) { // id is 1 indexed
+  return id * MAXFEATPERIMG + 1;
 }
 
