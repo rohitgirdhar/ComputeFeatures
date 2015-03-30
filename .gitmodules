@@ -4,3 +4,6 @@
 [submodule "Features/CNN/external/DiskVector"]
 	path = Features/CNN/external/DiskVector
 	url = git@github.com:rohitgirdhar-cmu-experimental/DiskVector.git
+[submodule "Features/CNN/external/caffe"]
+	path = Features/CNN/external/caffe
+	url = git@github.com:BVLC/caffe.git
