@@ -51,6 +51,8 @@ main(int argc, char *argv[]) {
      "List of images relative to input directory")
     ("windir,w", po::value<string>()->default_value(""),
      "Input directory of all windows in each image (selective search format: y1 x1 y2 x2). Defaults to full image features.")
+    ("startimgid,z", po::value<int>()->default_value(1),
+     "The image id of the first image in the list. Useful for testing parts of dataset because the selsearch boxes etc use the image ids")
     ("output-type,t", po::value<string>()->default_value("lmdb"),
      "Output format [txt/lmdb]")
     ("normalize,y", po::bool_switch()->default_value(false),
@@ -80,6 +82,7 @@ main(int argc, char *argv[]) {
   fs::path WINDIR = fs::path(vm["windir"].as<string>());
   string OUTTYPE = vm["output-type"].as<string>();
   bool NORMALIZE = vm["normalize"].as<bool>();
+  int START_IMGID = vm["startimgid"].as<int>();
 
   Net<float> caffe_test_net(NETWORK_PATH.string(), caffe::TEST);
   caffe_test_net.CopyTrainedLayersFrom(MODEL_PATH.string());
@@ -95,8 +98,8 @@ main(int argc, char *argv[]) {
         new DiskVectorLMDB<vector<float>>(OUTDIR));
   }
   // Create output directory
-  for (long long imgid = 1; imgid <= imgs.size(); imgid++) {
-    fs::path imgpath = imgs[imgid - 1];
+  for (long long imgid = START_IMGID; imgid <= START_IMGID + imgs.size(); imgid++) {
+    fs::path imgpath = imgs[imgid - START_IMGID];
 
     LOG(INFO) << "Doing for " << imgpath << "...";
 
