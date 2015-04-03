@@ -17,7 +17,8 @@ void computeFeatures(Net<Dtype>& caffe_test_net,
     const vector<Mat>& imgs,
     const string& LAYER,
     int BATCH_SIZE,
-    vector<vector<Dtype>>& output) {
+    vector<vector<Dtype>>& output,
+    bool verbose = true) {
   int nImgs = imgs.size();
   int nBatches = ceil(nImgs * 1.0f / BATCH_SIZE);
   for (int batch = 0; batch < nBatches; batch++) {
@@ -44,7 +45,9 @@ void computeFeatures(Net<Dtype>& caffe_test_net,
       Dtype* feat_data = feat->mutable_cpu_data() + feat->offset(i);
       output.push_back(vector<Dtype>(feat_data, feat_data + feat->count() / feat->shape()[0]));
     }
-    LOG(INFO) << "Batch " << batch << "/" << nBatches << " (" << actBatchSize << " images) done";
+    if (verbose) {
+      LOG(INFO) << "Batch " << batch << "/" << nBatches << " (" << actBatchSize << " images) done";
+    }
   }
 }
 
@@ -123,10 +126,18 @@ void l2NormalizeFeatures(vector<vector<Dtype>>& feats) {
 
 void genSlidingWindows(const Size& I_size, vector<Rect>& bboxes) {
   bboxes.clear();
-  int sliding_sz_x = max((int) WINDOW_RATIO * I_size.width, SLIDINGWIN_MIN_SZ_X);
-  int sliding_sz_y = max((int) WINDOW_RATIO * I_size.height, SLIDINGWIN_MIN_SZ_Y);
-  for (int x = 0; x < I_size.width - sliding_sz_x; x += SLIDINGWIN_STRIDE) {
-    for (int y = 0; y < I_size.height - sliding_sz_y; y += SLIDINGWIN_STRIDE) {
+  int sliding_sz_x = max((int) (SLIDINGWIN_WINDOW_RATIO * I_size.width),
+      SLIDINGWIN_MIN_SZ_X);
+  int sliding_sz_y = max((int) (SLIDINGWIN_WINDOW_RATIO * I_size.height),
+      SLIDINGWIN_MIN_SZ_Y);
+  sliding_sz_x = sliding_sz_y = min(sliding_sz_x, sliding_sz_y);
+  int sliding_stride_x = max((int) (SLIDINGWIN_STRIDE_RATIO * sliding_sz_x),
+      SLIDINGWIN_MIN_STRIDE);
+  int sliding_stride_y = max((int) (SLIDINGWIN_STRIDE_RATIO * sliding_sz_y),
+      SLIDINGWIN_MIN_STRIDE);
+  sliding_stride_x = sliding_stride_y = min(sliding_stride_x, sliding_stride_y);
+  for (int x = 0; x < I_size.width - sliding_sz_x; x += sliding_stride_x) {
+    for (int y = 0; y < I_size.height - sliding_sz_y; y += sliding_stride_y) {
       bboxes.push_back(Rect(x, y, sliding_sz_x, sliding_sz_y));
     }
   }

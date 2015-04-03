@@ -23,6 +23,9 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 #define MAXFEATPERIMG 10000
+// output type
+#define OUTTYPE_TEXT 1
+#define OUTTYPE_LMDB 2
 
 void dumpFeature(FILE*, const vector<float>&);
 long long hashCompleteName(long long, int);
@@ -67,7 +70,9 @@ main(int argc, char *argv[]) {
      "but uses it to prune the set of windows. "
      "By default keeps only those overlapping <0.2 with FG")
     ("startimgid,z", po::value<int>()->default_value(1),
-     "The image id of the first image in the list. Useful for testing parts of dataset because the selsearch boxes etc use the image ids")
+     "The image id of the first image in the list."
+     "Useful for testing parts of dataset because the selsearch boxes" 
+     "etc use the image ids. Give 1 indexed")
     ("output-type,t", po::value<string>()->default_value("lmdb"),
      "Output format [txt/lmdb]")
     ("normalize,y", po::bool_switch()->default_value(false),
@@ -96,10 +101,17 @@ main(int argc, char *argv[]) {
   fs::path IMGSLST = fs::path(vm["imgslst"].as<string>());
   fs::path WINDIR = fs::path(vm["windir"].as<string>());
   fs::path SEGDIR = fs::path(vm["segdir"].as<string>());
-  string OUTTYPE = vm["output-type"].as<string>();
   string POOLTYPE = vm["pool"].as<string>();
   bool NORMALIZE = vm["normalize"].as<bool>();
   int START_IMGID = vm["startimgid"].as<int>();
+  int OUTTYPE = -1;
+  if (vm["output-type"].as<string>().compare("text") == 0) {
+    OUTTYPE = OUTTYPE_TEXT;
+  } else if (vm["output-type"].as<string>().compare("lmdb") == 0) {
+    OUTTYPE = OUTTYPE_LMDB;
+  } else {
+    LOG(FATAL) << "Unknown output-type " << vm["output-type"].as<string>();
+  }
 
   if (SEGDIR.string().length() > 0 && fs::exists(SEGDIR)) {
     LOG(INFO) << "Will be pruning the bounding boxes using "
@@ -120,17 +132,17 @@ main(int argc, char *argv[]) {
   readList<fs::path>(IMGSLST, imgs);
   
   std::shared_ptr<DiskVectorLMDB<vector<float>>> dv;
-  if (OUTTYPE.compare("lmdb") == 0) {
+  if (OUTTYPE == OUTTYPE_LMDB) {
     dv = std::shared_ptr<DiskVectorLMDB<vector<float>>>(
         new DiskVectorLMDB<vector<float>>(OUTDIR));
   }
   high_resolution_clock::time_point begin = high_resolution_clock::now();
   for (long long imgid = START_IMGID; imgid <= START_IMGID + imgs.size(); imgid++) {
     high_resolution_clock::time_point start = high_resolution_clock::now();
-    fs::path imgpath = imgs[imgid - START_IMGID];
+    fs::path imgpath = imgs[imgid - 1];
 
-    LOG(INFO) << "Doing for " << imgpath << " (" << imgid << "/"
-              << imgs.size() << ")...";
+    cout << "Doing for " << imgpath << " (" << imgid << "/"
+         << imgs.size() << ")...";
 
     vector<Mat> Is;
     Mat I = imread((IMGSDIR / imgpath).string());
@@ -167,18 +179,18 @@ main(int argc, char *argv[]) {
       Is.push_back(Itemp);
     }
     // Uncomment to see the windows selected
-    // DEBUG_storeWindows(Is, fs::path("temp/") / imgpath, I, S);
+    DEBUG_storeWindows(Is, fs::path("temp/") / imgpath, I, S);
     vector<vector<float>> output;
     /**
      * Separately computing features for either case of text/lmdb because 
      * can using locking (and run parallel) for text output
      */
-    if (OUTTYPE.compare("text") == 0) {
+    if (OUTTYPE == OUTTYPE_TEXT) {
       fs::path outFile = fs::change_extension(OUTDIR / imgpath, ".txt");
       if (!lock(outFile)) {
         continue;
       }
-      computeFeatures<float>(caffe_test_net, Is, LAYER, BATCH_SIZE, output);
+      computeFeatures<float>(caffe_test_net, Is, LAYER, BATCH_SIZE, output, false);
       if (POOLTYPE.size() > 0) {
         poolFeatures(output, POOLTYPE);
       }
@@ -192,8 +204,8 @@ main(int argc, char *argv[]) {
       }
       unlock(outFile);
       fclose(fout);
-    } else if (OUTTYPE.compare("lmdb") == 0) {
-      computeFeatures<float>(caffe_test_net, Is, LAYER, BATCH_SIZE, output);
+    } else if (OUTTYPE == OUTTYPE_LMDB) {
+      computeFeatures<float>(caffe_test_net, Is, LAYER, BATCH_SIZE, output, false);
       if (POOLTYPE.size() > 0) {
         poolFeatures(output, POOLTYPE);
       }
@@ -204,17 +216,13 @@ main(int argc, char *argv[]) {
       for (int i = 0; i < output.size(); i++) {
         dv->Put(hashCompleteName(imgid, i), output[i]);
       }
-    } else {
-      LOG(ERROR) << "Unrecognized output type " << OUTTYPE << endl;
     }
     high_resolution_clock::time_point end = high_resolution_clock::now();
-    LOG(INFO) << "Done in " << duration_cast<milliseconds>(end - start).count()
-              << "ms";
-    if (imgid % 300 == 0) {
-      LOG(INFO) << "**Time passed since beginning**" << endl << "  "
-                << duration_cast<milliseconds>(end - begin).count()
-                << "ms for " << imgid - START_IMGID + 1 << " images";
-    }
+    cout << "Done in " << duration_cast<milliseconds>(end - start).count()
+         << "ms" << endl
+         << "Average taking " 
+         << duration_cast<milliseconds>(end - begin).count() * 1.0f / 
+            (imgid - START_IMGID + 1) << "ms" << endl;
   }
 
   return 0;
