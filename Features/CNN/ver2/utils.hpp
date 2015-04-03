@@ -123,12 +123,11 @@ void l2NormalizeFeatures(vector<vector<Dtype>>& feats) {
 
 void genSlidingWindows(const Size& I_size, vector<Rect>& bboxes) {
   bboxes.clear();
-  int sliding_sz_x;
-  int sliding_sz_y;
-  int sliding_stride;
-  for (int x = 0; x < I_size.width - SLIDINGWIN_SZ_X; x += SLIDINGWIN_STRIDE) {
-    for (int y = 0; y < I_size.height - SLIDINGWIN_SZ_Y; y += SLIDINGWIN_STRIDE) {
-      bboxes.push_back(Rect(x, y, SLIDINGWIN_SZ_X, SLIDINGWIN_SZ_Y));
+  int sliding_sz_x = max((int) WINDOW_RATIO * I_size.width, SLIDINGWIN_MIN_SZ_X);
+  int sliding_sz_y = max((int) WINDOW_RATIO * I_size.height, SLIDINGWIN_MIN_SZ_Y);
+  for (int x = 0; x < I_size.width - sliding_sz_x; x += SLIDINGWIN_STRIDE) {
+    for (int y = 0; y < I_size.height - sliding_sz_y; y += SLIDINGWIN_STRIDE) {
+      bboxes.push_back(Rect(x, y, sliding_sz_x, sliding_sz_y));
     }
   }
 }

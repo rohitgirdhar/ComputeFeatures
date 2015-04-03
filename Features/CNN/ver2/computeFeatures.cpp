@@ -126,7 +126,7 @@ main(int argc, char *argv[]) {
   for (long long imgid = START_IMGID; imgid <= START_IMGID + imgs.size(); imgid++) {
     fs::path imgpath = imgs[imgid - START_IMGID];
 
-    LOG(INFO) << "Doing for " << imgpath << "...";
+    LOG(INFO) << "Doing for " << imgpath << " (" << imgid << ")...";
 
     vector<Mat> Is;
     Mat I = imread((IMGSDIR / imgpath).string());
