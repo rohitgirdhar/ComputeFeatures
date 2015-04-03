@@ -4,7 +4,7 @@
 #include <opencv2/opencv.hpp>
 #include <boost/filesystem.hpp>
 #include "caffe/caffe.hpp"
-#include "SlidingWindowConfig.hpp"
+#include "Config.hpp"
 
 using namespace std;
 using namespace caffe;
@@ -121,27 +121,62 @@ void l2NormalizeFeatures(vector<vector<Dtype>>& feats) {
   } 
 }
 
-void genSlidingWindows(const Mat& I, vector<Rect>& bboxes) {
+void genSlidingWindows(const Size& I_size, vector<Rect>& bboxes) {
   bboxes.clear();
-  for (int x = 0; x < I.cols - SLIDINGWIN_SZ_X; x += SLIDINGWIN_STRIDE) {
-    for (int y = 0; y < I.rows - SLIDINGWIN_SZ_Y; y += SLIDINGWIN_STRIDE) {
+  int sliding_sz_x;
+  int sliding_sz_y;
+  int sliding_stride;
+  for (int x = 0; x < I_size.width - SLIDINGWIN_SZ_X; x += SLIDINGWIN_STRIDE) {
+    for (int y = 0; y < I_size.height - SLIDINGWIN_SZ_Y; y += SLIDINGWIN_STRIDE) {
       bboxes.push_back(Rect(x, y, SLIDINGWIN_SZ_X, SLIDINGWIN_SZ_Y));
     }
   }
 }
 
-void pruneBboxesWithSeg(const fs::path& segpath, vector<Rect>& bboxes) {
+void pruneBboxesWithSeg(const Size& I_size, 
+    const fs::path& segpath, vector<Rect>& bboxes, Mat& S) {
   // TODO (rg): speed up by using integral images
   vector<Rect> res;
-  Mat I = imread(segpath.string().c_str(), CV_LOAD_IMAGE_GRAYSCALE);
+  S = imread(segpath.string().c_str(), CV_LOAD_IMAGE_GRAYSCALE);
+  // resize to the same size as I
+  resize(S, S, I_size);
   for (int i = 0; i < bboxes.size(); i++) {
-    int in = cv::sum(I(bboxes[i]))[0]; 
+    int in = cv::sum(S(bboxes[i]))[0]; 
     int tot = bboxes[i].width * bboxes[i].height;
-    if (in * 1.0f / tot < 0.2f) { // bg patch
+    if (in * 1.0f / tot < PERC_FGOVERLAP_FOR_BG) { // bg patch
       res.push_back(bboxes[i]);
     }
   }
   bboxes = res;
+}
+
+void DEBUG_storeWindows(const vector<Mat>& Is, fs::path fpath, 
+    const Mat& I, const Mat& S) {
+  fs::create_directories(fpath);
+  imwrite(fpath.string() + "/main.jpg", I);
+  imwrite(fpath.string() + "/seg.jpg", S);
+  for (int i = 0; i < Is.size(); i++) {
+    imwrite(fpath.string() + "/" + to_string((long long)i) + ".jpg", Is[i]);
+  }
+}
+
+void poolFeatures(vector<vector<float>>& feats, const string& pooltype) {
+  if (feats.size() == 0) return;
+  vector<float> res(feats[0].size(), 0.0f);
+  if (pooltype.compare("avg") == 0) {
+    for (int i = 0; i < feats.size(); i++) {
+      for (int j = 0; j < feats[i].size(); j++) {
+        res[j] += feats[i][j];
+      }
+    }
+    for (int j = 0; j < res.size(); j++) {
+      res[j] /= feats.size();
+    }
+  } else {
+    LOG(ERROR) << "Pool type " << pooltype << " not implemented yet!";
+  }
+  feats.clear();
+  feats.push_back(res);
 }
 
 #endif

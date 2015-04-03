@@ -27,6 +27,7 @@ long long hashCompleteName(long long, int);
 
 int
 main(int argc, char *argv[]) {
+  ::google::InitGoogleLogging(argv[0]);
 #ifdef CPU_ONLY
   Caffe::set_mode(Caffe::CPU);
   LOG(INFO) << "Extracting Features in CPU mode";
@@ -55,6 +56,10 @@ main(int argc, char *argv[]) {
      "Ignores sliding window if set.")
     ("sliding,s", po::bool_switch()->default_value(false),
      "Compute features in sliding window fashion")
+    ("pool,p", po::value<string>()->default_value(""),
+     "Pool the features from different regions into one feature."
+     "Supports: <empty>: no pooling. store all features."
+     "avg: avg pooling")
     ("segdir,x", po::value<string>()->default_value(""),
      "Directory with images with same filename as in the corpus images dir "
      "but uses it to prune the set of windows. "
@@ -90,6 +95,7 @@ main(int argc, char *argv[]) {
   fs::path WINDIR = fs::path(vm["windir"].as<string>());
   fs::path SEGDIR = fs::path(vm["segdir"].as<string>());
   string OUTTYPE = vm["output-type"].as<string>();
+  string POOLTYPE = vm["pool"].as<string>();
   bool NORMALIZE = vm["normalize"].as<bool>();
   int START_IMGID = vm["startimgid"].as<int>();
 
@@ -98,6 +104,9 @@ main(int argc, char *argv[]) {
               << "segmentation information";
   } else {
     SEGDIR = fs::path(""); // so that I don't need to check existance again
+  }
+  if (POOLTYPE.length() > 0) {
+    LOG(INFO) << "Will be pooling with " << POOLTYPE;
   }
 
   Net<float> caffe_test_net(NETWORK_PATH.string(), caffe::TEST);
@@ -121,6 +130,7 @@ main(int argc, char *argv[]) {
 
     vector<Mat> Is;
     Mat I = imread((IMGSDIR / imgpath).string());
+    Mat S; // get the segmentation image as well, used in debugging
     if (!I.data) {
       LOG(ERROR) << "Unable to read " << imgpath;
       continue;
@@ -129,7 +139,7 @@ main(int argc, char *argv[]) {
     if (WINDIR.string().size() > 0) {
       readBBoxesSelSearch<float>((WINDIR / (to_string((long long)imgid) + ".txt")).string(), bboxes);
     } else if (vm["sliding"].as<bool>()) {
-      genSlidingWindows(I, bboxes);
+      genSlidingWindows(I.size(), bboxes);
     } else {
       bboxes.push_back(Rect(0, 0, I.cols, I.rows)); // full image
     }
@@ -140,10 +150,11 @@ main(int argc, char *argv[]) {
       if (!fs::exists(segpath)) {
         LOG(ERROR) << "Segmentation information not found for " << segpath;
       } else {
-        pruneBboxesWithSeg(segpath, bboxes);
+        pruneBboxesWithSeg(I.size(), segpath, bboxes, S);
       }
     }
 
+    LOG(INFO) << "Computing over " << bboxes.size() << " subwindows";
     // push in all subwindows
     for (int i = 0; i < bboxes.size(); i++) {
       Mat Itemp  = I(bboxes[i]);
@@ -151,6 +162,8 @@ main(int argc, char *argv[]) {
                                             // like mean subtraction etc
       Is.push_back(Itemp);
     }
+    // Uncomment to see the windows selected
+    // DEBUG_storeWindows(Is, fs::path("temp/") / imgpath, I, S);
     vector<vector<float>> output;
     /**
      * Separately computing features for either case of text/lmdb because 
@@ -162,6 +175,9 @@ main(int argc, char *argv[]) {
         continue;
       }
       computeFeatures<float>(caffe_test_net, Is, LAYER, BATCH_SIZE, output);
+      if (POOLTYPE.size() > 0) {
+        poolFeatures(output, POOLTYPE);
+      }
       if (NORMALIZE) {
         l2NormalizeFeatures(output);
       }
@@ -174,6 +190,9 @@ main(int argc, char *argv[]) {
       fclose(fout);
     } else if (OUTTYPE.compare("lmdb") == 0) {
       computeFeatures<float>(caffe_test_net, Is, LAYER, BATCH_SIZE, output);
+      if (POOLTYPE.size() > 0) {
+        poolFeatures(output, POOLTYPE);
+      }
       if (NORMALIZE) {
         l2NormalizeFeatures(output);
       }
