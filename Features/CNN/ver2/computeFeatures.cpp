@@ -23,6 +23,7 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 #define MAXFEATPERIMG 10000
+#define PRINT_INTERVAL 20
 // output type
 #define OUTTYPE_TEXT 1
 #define OUTTYPE_LMDB 2
@@ -141,8 +142,10 @@ main(int argc, char *argv[]) {
     high_resolution_clock::time_point start = high_resolution_clock::now();
     fs::path imgpath = imgs[imgid - 1];
 
-    cout << "Doing for " << imgpath << " (" << imgid << "/"
-         << imgs.size() << ")...";
+    if (imgid % PRINT_INTERVAL == 0) {
+      cout << "Doing for " << imgpath << " (" << imgid << "/"
+           << imgs.size() << ")...";
+    }
 
     vector<Mat> Is;
     Mat I = imread((IMGSDIR / imgpath).string());
@@ -179,7 +182,7 @@ main(int argc, char *argv[]) {
       Is.push_back(Itemp);
     }
     // Uncomment to see the windows selected
-    DEBUG_storeWindows(Is, fs::path("temp/") / imgpath, I, S);
+    // DEBUG_storeWindows(Is, fs::path("temp/") / imgpath, I, S);
     vector<vector<float>> output;
     /**
      * Separately computing features for either case of text/lmdb because 
@@ -217,12 +220,14 @@ main(int argc, char *argv[]) {
         dv->Put(hashCompleteName(imgid, i), output[i]);
       }
     }
-    high_resolution_clock::time_point end = high_resolution_clock::now();
-    cout << "Done in " << duration_cast<milliseconds>(end - start).count()
-         << "ms" << endl
-         << "Average taking " 
-         << duration_cast<milliseconds>(end - begin).count() * 1.0f / 
-            (imgid - START_IMGID + 1) << "ms" << endl;
+    if (imgid % PRINT_INTERVAL == 0) {
+      high_resolution_clock::time_point end = high_resolution_clock::now();
+      cout << "Done in " << duration_cast<milliseconds>(end - start).count()
+           << "ms" << endl
+           << "Average taking " 
+           << duration_cast<milliseconds>(end - begin).count() * 1.0f / 
+              (imgid - START_IMGID + 1) << "ms" << endl;
+    }
   }
 
   return 0;
