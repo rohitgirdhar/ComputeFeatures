@@ -4,6 +4,7 @@
  */
 
 #include <memory>
+#include <chrono>
 #include <opencv2/opencv.hpp>
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
@@ -15,6 +16,7 @@
 #include "lock.hpp"
 
 using namespace std;
+using namespace std::chrono;
 using namespace caffe;
 using namespace cv;
 namespace po = boost::program_options;
@@ -122,11 +124,13 @@ main(int argc, char *argv[]) {
     dv = std::shared_ptr<DiskVectorLMDB<vector<float>>>(
         new DiskVectorLMDB<vector<float>>(OUTDIR));
   }
-  // Create output directory
+  high_resolution_clock::time_point begin = high_resolution_clock::now();
   for (long long imgid = START_IMGID; imgid <= START_IMGID + imgs.size(); imgid++) {
+    high_resolution_clock::time_point start = high_resolution_clock::now();
     fs::path imgpath = imgs[imgid - START_IMGID];
 
-    LOG(INFO) << "Doing for " << imgpath << " (" << imgid << ")...";
+    LOG(INFO) << "Doing for " << imgpath << " (" << imgid << "/"
+              << imgs.size() << ")...";
 
     vector<Mat> Is;
     Mat I = imread((IMGSDIR / imgpath).string());
@@ -202,6 +206,14 @@ main(int argc, char *argv[]) {
       }
     } else {
       LOG(ERROR) << "Unrecognized output type " << OUTTYPE << endl;
+    }
+    high_resolution_clock::time_point end = high_resolution_clock::now();
+    LOG(INFO) << "Done in " << duration_cast<milliseconds>(end - start).count()
+              << "ms";
+    if (imgid % 300 == 0) {
+      LOG(INFO) << "**Time passed since beginning**" << endl << "  "
+                << duration_cast<milliseconds>(end - begin).count()
+                << "ms for " << imgid - START_IMGID + 1 << " images";
     }
   }
 
