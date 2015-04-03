@@ -50,7 +50,15 @@ main(int argc, char *argv[]) {
     ("imgslst,q", po::value<string>()->required(),
      "List of images relative to input directory")
     ("windir,w", po::value<string>()->default_value(""),
-     "Input directory of all windows in each image (selective search format: y1 x1 y2 x2). Defaults to full image features.")
+     "Input directory of all windows in each image (selective search format: y1 x1 y2 x2)." 
+     "Defaults to full image features."
+     "Ignores sliding window if set.")
+    ("sliding,s", po::bool_switch()->default_value(false),
+     "Compute features in sliding window fashion")
+    ("segdir,x", po::value<string>()->default_value(""),
+     "Directory with images with same filename as in the corpus images dir "
+     "but uses it to prune the set of windows. "
+     "By default keeps only those overlapping <0.2 with FG")
     ("startimgid,z", po::value<int>()->default_value(1),
      "The image id of the first image in the list. Useful for testing parts of dataset because the selsearch boxes etc use the image ids")
     ("output-type,t", po::value<string>()->default_value("lmdb"),
@@ -80,9 +88,17 @@ main(int argc, char *argv[]) {
   fs::path IMGSDIR = fs::path(vm["imgsdir"].as<string>());
   fs::path IMGSLST = fs::path(vm["imgslst"].as<string>());
   fs::path WINDIR = fs::path(vm["windir"].as<string>());
+  fs::path SEGDIR = fs::path(vm["segdir"].as<string>());
   string OUTTYPE = vm["output-type"].as<string>();
   bool NORMALIZE = vm["normalize"].as<bool>();
   int START_IMGID = vm["startimgid"].as<int>();
+
+  if (SEGDIR.string().length() > 0 && fs::exists(SEGDIR)) {
+    LOG(INFO) << "Will be pruning the bounding boxes using "
+              << "segmentation information";
+  } else {
+    SEGDIR = fs::path(""); // so that I don't need to check existance again
+  }
 
   Net<float> caffe_test_net(NETWORK_PATH.string(), caffe::TEST);
   caffe_test_net.CopyTrainedLayersFrom(MODEL_PATH.string());
@@ -112,12 +128,22 @@ main(int argc, char *argv[]) {
     vector<Rect> bboxes;
     if (WINDIR.string().size() > 0) {
       readBBoxesSelSearch<float>((WINDIR / (to_string((long long)imgid) + ".txt")).string(), bboxes);
+    } else if (vm["sliding"].as<bool>()) {
+      genSlidingWindows(I, bboxes);
     } else {
       bboxes.push_back(Rect(0, 0, I.cols, I.rows)); // full image
     }
-    if (!I.data) {
-      LOG(ERROR) << "Unable to read image " << imgpath;
+
+    // check if segdir defined. If so, then prune the list of bboxes
+    if (SEGDIR.string().length() > 0) {
+      fs::path segpath = SEGDIR / imgpath;
+      if (!fs::exists(segpath)) {
+        LOG(ERROR) << "Segmentation information not found for " << segpath;
+      } else {
+        pruneBboxesWithSeg(segpath, bboxes);
+      }
     }
+
     // push in all subwindows
     for (int i = 0; i < bboxes.size(); i++) {
       Mat Itemp  = I(bboxes[i]);

@@ -4,6 +4,7 @@
 #include <opencv2/opencv.hpp>
 #include <boost/filesystem.hpp>
 #include "caffe/caffe.hpp"
+#include "SlidingWindowConfig.hpp"
 
 using namespace std;
 using namespace caffe;
@@ -118,6 +119,29 @@ void l2NormalizeFeatures(vector<vector<Dtype>>& feats) {
       feats[i][j] = feats[i][j] / l2norm;
     }
   } 
+}
+
+void genSlidingWindows(const Mat& I, vector<Rect>& bboxes) {
+  bboxes.clear();
+  for (int x = 0; x < I.cols - SLIDINGWIN_SZ_X; x += SLIDINGWIN_STRIDE) {
+    for (int y = 0; y < I.rows - SLIDINGWIN_SZ_Y; y += SLIDINGWIN_STRIDE) {
+      bboxes.push_back(Rect(x, y, SLIDINGWIN_SZ_X, SLIDINGWIN_SZ_Y));
+    }
+  }
+}
+
+void pruneBboxesWithSeg(const fs::path& segpath, vector<Rect>& bboxes) {
+  // TODO (rg): speed up by using integral images
+  vector<Rect> res;
+  Mat I = imread(segpath.string().c_str(), CV_LOAD_IMAGE_GRAYSCALE);
+  for (int i = 0; i < bboxes.size(); i++) {
+    int in = cv::sum(I(bboxes[i]))[0]; 
+    int tot = bboxes[i].width * bboxes[i].height;
+    if (in * 1.0f / tot < 0.2f) { // bg patch
+      res.push_back(bboxes[i]);
+    }
+  }
+  bboxes = res;
 }
 
 #endif
