@@ -15,10 +15,15 @@ namespace fs = boost::filesystem;
 template<typename Dtype>
 void computeFeatures(Net<Dtype>& caffe_test_net,
     const vector<Mat>& imgs,
-    const string& LAYER,
+    const vector<string>& LAYERS,
     int BATCH_SIZE,
-    vector<vector<Dtype>>& output,
+    vector<vector<vector<Dtype>>>& output,
     bool verbose = true) {
+  output.clear();
+  // initialize output for each layers
+  for (int i = 0; i < LAYERS.size(); i++) {
+    output.push_back(vector<vector<Dtype>>());
+  }
   int nImgs = imgs.size();
   int nBatches = ceil(nImgs * 1.0f / BATCH_SIZE);
   for (int batch = 0; batch < nBatches; batch++) {
@@ -40,10 +45,13 @@ void computeFeatures(Net<Dtype>& caffe_test_net,
     md_layer->AddMatVector(imgs_b, dvl);
     Dtype loss = 0.0f;
     caffe_test_net.ForwardPrefilled(&loss);
-    const boost::shared_ptr<Blob<Dtype>> feat = caffe_test_net.blob_by_name(LAYER);
-    for (int i = 0; i < actBatchSize; i++) {
-      Dtype* feat_data = feat->mutable_cpu_data() + feat->offset(i);
-      output.push_back(vector<Dtype>(feat_data, feat_data + feat->count() / feat->shape()[0]));
+    for (int l = 0; l < LAYERS.size(); l++) {
+      const boost::shared_ptr<Blob<Dtype>> feat = 
+        caffe_test_net.blob_by_name(LAYERS[l]);
+      for (int i = 0; i < actBatchSize; i++) {
+        Dtype* feat_data = feat->mutable_cpu_data() + feat->offset(i);
+        output[l].push_back(vector<Dtype>(feat_data, feat_data + feat->count() / feat->shape()[0]));
+      }
     }
     if (verbose) {
       LOG(INFO) << "Batch " << batch << "/" << nBatches << " (" << actBatchSize << " images) done";

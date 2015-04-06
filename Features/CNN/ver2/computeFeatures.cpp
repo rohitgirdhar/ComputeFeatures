@@ -30,6 +30,15 @@ namespace fs = boost::filesystem;
 
 void dumpFeature(FILE*, const vector<float>&);
 long long hashCompleteName(long long, int);
+template<typename Dtype>
+void computeFeaturesPipeline(Net<Dtype>& caffe_test_net,
+    const vector<Mat>& Is,
+    const vector<string>& layers,
+    int BATCH_SIZE,
+    vector<vector<vector<Dtype>>>& output,
+    bool verbose,
+    const string& POOLTYPE,
+    bool NORMALIZE);
 
 int
 main(int argc, char *argv[]) {
@@ -96,7 +105,9 @@ main(int argc, char *argv[]) {
   fs::path NETWORK_PATH = fs::path(vm["network-path"].as<string>());
   fs::path MODEL_PATH = 
     fs::path(vm["model-path"].as<string>());
-  string LAYER = vm["layer"].as<string>();
+  string LAYERS = vm["layer"].as<string>();
+  vector<string> layers;
+  boost::split(layers, LAYERS, boost::is_any_of(","));
   fs::path OUTDIR = fs::path(vm["outdir"].as<string>());
   fs::path IMGSDIR = fs::path(vm["imgsdir"].as<string>());
   fs::path IMGSLST = fs::path(vm["imgslst"].as<string>());
@@ -183,41 +194,43 @@ main(int argc, char *argv[]) {
     }
     // Uncomment to see the windows selected
     // DEBUG_storeWindows(Is, fs::path("temp/") / imgpath, I, S);
-    vector<vector<float>> output;
+
+    // [layer[image[feature]]]
+    vector<vector<vector<float>>> output;
     /**
      * Separately computing features for either case of text/lmdb because 
      * can using locking (and run parallel) for text output
      */
     if (OUTTYPE == OUTTYPE_TEXT) {
       fs::path outFile = fs::change_extension(OUTDIR / imgpath, ".txt");
+      if (output.size() > 1) {
+        outFile = fs::change_extension(OUTDIR / fs::path(layers[0]) / imgpath, ".txt");
+      }
       if (!lock(outFile)) {
         continue;
       }
-      computeFeatures<float>(caffe_test_net, Is, LAYER, BATCH_SIZE, output, false);
-      if (POOLTYPE.size() > 0) {
-        poolFeatures(output, POOLTYPE);
-      }
-      if (NORMALIZE) {
-        l2NormalizeFeatures(output);
-      }
-      fs::create_directories(outFile.parent_path());
-      FILE* fout = fopen(outFile.string().c_str(), "w");
-      for (int i = 0; i < output.size(); i++) {
-        dumpFeature(fout, output[i]);
+      computeFeaturesPipeline(caffe_test_net, Is, layers, 
+          BATCH_SIZE, output, false, POOLTYPE, NORMALIZE);
+      for (int l = 0; l < output.size(); l++) {
+        fs::path thisoutFile = fs::change_extension(OUTDIR / imgpath, ".txt");
+        if (output.size() > 1) {
+          thisoutFile = fs::change_extension(OUTDIR / fs::path(layers[l]) / imgpath, ".txt");
+        }
+        fs::create_directories(thisoutFile.parent_path());
+        FILE* fout = fopen(thisoutFile.string().c_str(), "w");
+        for (int i = 0; i < output[l].size(); i++) {
+          dumpFeature(fout, output[l][i]);
+        }
+        fclose(fout);
       }
       unlock(outFile);
-      fclose(fout);
     } else if (OUTTYPE == OUTTYPE_LMDB) {
-      computeFeatures<float>(caffe_test_net, Is, LAYER, BATCH_SIZE, output, false);
-      if (POOLTYPE.size() > 0) {
-        poolFeatures(output, POOLTYPE);
-      }
-      if (NORMALIZE) {
-        l2NormalizeFeatures(output);
-      }
+      LOG(FATAL) << "Multiple layer output is not suppported with lmdb output.";
+      computeFeaturesPipeline(caffe_test_net, Is, layers, 
+          BATCH_SIZE, output, false, POOLTYPE, NORMALIZE);
       // output into a DiskVector
-      for (int i = 0; i < output.size(); i++) {
-        dv->Put(hashCompleteName(imgid, i), output[i]);
+      for (int i = 0; i < output[0].size(); i++) {
+        dv->Put(hashCompleteName(imgid, i), output[0][i]);
       }
     }
     if (imgid % PRINT_INTERVAL == 0) {
@@ -246,5 +259,29 @@ inline void dumpFeature(FILE* fout, const vector<float>& feat) {
 
 inline long long hashCompleteName(long long imgid, int id) {
   return (imgid - 1) * MAXFEATPERIMG + id;
+}
+
+template<typename Dtype>
+void computeFeaturesPipeline(Net<Dtype>& caffe_test_net,
+    const vector<Mat>& Is,
+    const vector<string>& layers,
+    int BATCH_SIZE,
+    vector<vector<vector<Dtype>>>& output,
+    bool verbose,
+    const string& POOLTYPE,
+    bool NORMALIZE) {
+  computeFeatures(caffe_test_net, Is, layers, BATCH_SIZE, output, verbose);
+  if (! POOLTYPE.empty()) {
+    // assuming all layers need to be pooled
+    for (int l = 0; l < output.size(); l++) {
+      poolFeatures(output[l], POOLTYPE);
+    }
+  }
+  if (NORMALIZE) {
+    // assuming all layers need to be normalized
+    for (int i = 0; i < output.size(); i++) {
+      l2NormalizeFeatures(output[i]);
+    }
+  }
 }
 
