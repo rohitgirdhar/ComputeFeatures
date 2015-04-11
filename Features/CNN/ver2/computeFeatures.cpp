@@ -149,7 +149,7 @@ main(int argc, char *argv[]) {
         new DiskVectorLMDB<vector<float>>(OUTDIR));
   }
   high_resolution_clock::time_point begin = high_resolution_clock::now();
-  for (long long imgid = START_IMGID; imgid <= START_IMGID + imgs.size(); imgid++) {
+  for (long long imgid = START_IMGID; imgid <= imgs.size(); imgid++) {
     high_resolution_clock::time_point start = high_resolution_clock::now();
     fs::path imgpath = imgs[imgid - 1];
 
@@ -225,7 +225,9 @@ main(int argc, char *argv[]) {
       }
       unlock(outFile);
     } else if (OUTTYPE == OUTTYPE_LMDB) {
-      LOG(FATAL) << "Multiple layer output is not suppported with lmdb output.";
+      if (layers.size() > 1) {
+        LOG(FATAL) << "Multiple layer output is not suppported with lmdb output.";
+      }
       computeFeaturesPipeline(caffe_test_net, Is, layers, 
           BATCH_SIZE, output, false, POOLTYPE, NORMALIZE);
       // output into a DiskVector
@@ -257,8 +259,9 @@ inline void dumpFeature(FILE* fout, const vector<float>& feat) {
   fprintf(fout, "\n");
 }
 
-inline long long hashCompleteName(long long imgid, int id) {
-  return (imgid - 1) * MAXFEATPERIMG + id;
+inline long long hashCompleteName(long long imgid, int id) { // imgid is 1 indexed, id is 0 indexed
+  // both will be 1 indexed <convention set Saturday 11 April 2015 01:57:20 AM GMT>
+  return imgid * MAXFEATPERIMG + id + 1;
 }
 
 template<typename Dtype>
