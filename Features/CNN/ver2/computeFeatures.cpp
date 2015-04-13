@@ -87,6 +87,9 @@ main(int argc, char *argv[]) {
      "Output format [txt/lmdb]")
     ("normalize,y", po::bool_switch()->default_value(false),
      "Enable feature L2 normalization")
+    ("ids2compute4", po::value<string>()->default_value(""),
+     "File with list of image ids (1 indexed) to compute the features"
+     "for. If not specified, computes from start img idx to end")
     ;
 
   po::variables_map vm;
@@ -142,20 +145,31 @@ main(int argc, char *argv[]) {
   // Get list of images in directory
   vector<fs::path> imgs;
   readList<fs::path>(IMGSLST, imgs);
-  
+
+  // Get list of image ids (1 indexed) to compute for 
+  vector<long long> ids2compute4;
+  if (vm["ids2compute4"].as<string>().length() > 0) {
+    readList(vm["ids2compute4"].as<string>(), ids2compute4);
+  } else {
+    for (long long imgid = START_IMGID; imgid <= imgs.size(); imgid++) {
+      ids2compute4.push_back(imgid);
+    }
+  }
+
   std::shared_ptr<DiskVectorLMDB<vector<float>>> dv;
   if (OUTTYPE == OUTTYPE_LMDB) {
     dv = std::shared_ptr<DiskVectorLMDB<vector<float>>>(
         new DiskVectorLMDB<vector<float>>(OUTDIR));
   }
   high_resolution_clock::time_point begin = high_resolution_clock::now();
-  for (long long imgid = START_IMGID; imgid <= imgs.size(); imgid++) {
+  for (long long meta_i = 0; meta_i < ids2compute4.size(); meta_i++) {
+    long long imgid = ids2compute4[meta_i];
     high_resolution_clock::time_point start = high_resolution_clock::now();
     fs::path imgpath = imgs[imgid - 1];
 
-    if (imgid % PRINT_INTERVAL == 0) {
-      cout << "Doing for " << imgpath << " (" << imgid << "/"
-           << imgs.size() << ")...";
+    if (meta_i % PRINT_INTERVAL == 0) {
+      cout << "Doing for " << imgpath << " (" << meta_i << "/"
+           << ids2compute4.size() << ")...";
     }
 
     vector<Mat> Is;
@@ -235,13 +249,13 @@ main(int argc, char *argv[]) {
         dv->Put(hashCompleteName(imgid, i), output[0][i]);
       }
     }
-    if (imgid % PRINT_INTERVAL == 0) {
+    if (meta_i % PRINT_INTERVAL == 0) {
       high_resolution_clock::time_point end = high_resolution_clock::now();
       cout << "Done in " << duration_cast<milliseconds>(end - start).count()
            << "ms" << endl
            << "Average taking " 
            << duration_cast<milliseconds>(end - begin).count() * 1.0f / 
-              (imgid - START_IMGID + 1) << "ms" << endl;
+              (meta_i + 1) << "ms" << endl;
     }
   }
 
