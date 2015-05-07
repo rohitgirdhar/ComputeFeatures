@@ -9,6 +9,7 @@
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp> // for to_lower
+#include <hdf5.h>
 #include "caffe/caffe.hpp"
 #include "utils.hpp"
 //#include "external/DiskVector/DiskVector.hpp"
@@ -30,7 +31,7 @@ namespace fs = boost::filesystem;
 #define OUTTYPE_HDF5 3
 
 void dumpFeatures_txt(const fs::path&, const vector<vector<float>>&);
-void dumpFeatures_hdf5(const fs::path&, const vector<vector<float>>&);
+void dumpFeatures_hdf5(const fs::path&, vector<vector<float>>&);
 long long hashCompleteName(long long, int);
 template<typename Dtype>
 void computeFeaturesPipeline(Net<Dtype>& caffe_test_net,
@@ -286,7 +287,36 @@ inline void dumpFeatures_txt(const fs::path& fpath, const vector<vector<float>>&
   fclose(fout);
 }
 
-inline void dumpFeatures_hdf5(const fs::path& fpath, const vector<vector<float>>& feats) {
+inline void dumpFeatures_hdf5(const fs::path& fpath, vector<vector<float>>& feats) {
+  if (feats.size() == 0) {
+    cerr << "No items in the feature. Not writing the file." << endl;
+    return;
+  }
+  int DIM1 = feats.size();
+  int DIM2 = feats[0].size();
+  float* feats_raw = new float[DIM1 * DIM2];
+  for (int i = 0; i < feats.size(); i++) {
+    for (int j = 0; j < feats[i].size(); j++) {
+      feats_raw[i * DIM2 + j] = feats[i][j];
+    }
+  }
+  hsize_t dimsf[2];
+  dimsf[0] = DIM1; dimsf[1] = DIM2;
+  hsize_t cdims[2];
+  cdims[0] = 1; cdims[1] = DIM2;
+  hid_t file = H5Fcreate(fpath.string().c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT); 
+  hid_t dataspace = H5Screate_simple(2, dimsf, NULL);
+  hid_t dcpl = H5Pcreate (H5P_DATASET_CREATE);
+  H5Pset_deflate(dcpl, 6);
+  H5Pset_chunk(dcpl, 2, cdims);
+  hid_t dataset = H5Dcreate(file, "feats", H5T_NATIVE_FLOAT, dataspace, H5P_DEFAULT, dcpl,
+      H5P_DEFAULT);
+  H5Dwrite(dataset, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, feats_raw);
+
+  delete[] feats_raw;
+  H5Sclose(dataspace);
+  H5Dclose(dataset);
+  H5Fclose(file);
 }
 
 inline long long hashCompleteName(long long imgid, int id) { // imgid is 1 indexed, id is 0 indexed
