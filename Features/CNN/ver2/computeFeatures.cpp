@@ -27,8 +27,10 @@ namespace fs = boost::filesystem;
 // output type
 #define OUTTYPE_TEXT 1
 #define OUTTYPE_LMDB 2
+#define OUTTYPE_HDF5 3
 
-void dumpFeature(FILE*, const vector<float>&);
+void dumpFeatures_txt(const fs::path&, const vector<vector<float>>&);
+void dumpFeatures_hdf5(const fs::path&, const vector<vector<float>>&);
 long long hashCompleteName(long long, int);
 template<typename Dtype>
 void computeFeaturesPipeline(Net<Dtype>& caffe_test_net,
@@ -84,7 +86,7 @@ main(int argc, char *argv[]) {
      "Useful for testing parts of dataset because the selsearch boxes" 
      "etc use the image ids. Give 1 indexed")
     ("output-type,t", po::value<string>()->default_value("lmdb"),
-     "Output format [txt/lmdb]")
+     "Output format [txt/lmdb/hdf5]")
     ("normalize,y", po::bool_switch()->default_value(false),
      "Enable feature L2 normalization")
     ("ids2compute4", po::value<string>()->default_value(""),
@@ -124,6 +126,8 @@ main(int argc, char *argv[]) {
     OUTTYPE = OUTTYPE_TEXT;
   } else if (vm["output-type"].as<string>().compare("lmdb") == 0) {
     OUTTYPE = OUTTYPE_LMDB;
+  } else if (vm["output-type"].as<string>().compare("hdf5") == 0) {
+    OUTTYPE = OUTTYPE_HDF5;
   } else {
     LOG(FATAL) << "Unknown output-type " << vm["output-type"].as<string>();
   }
@@ -212,13 +216,18 @@ main(int argc, char *argv[]) {
     // [layer[image[feature]]]
     vector<vector<vector<float>>> output;
     /**
-     * Separately computing features for either case of text/lmdb because 
+     * Separately computing features for either case of text/hdf5 and lmdb because 
      * can using locking (and run parallel) for text output
      */
-    if (OUTTYPE == OUTTYPE_TEXT) {
-      fs::path outFile = fs::change_extension(OUTDIR / imgpath, ".txt");
+    if (OUTTYPE == OUTTYPE_TEXT || OUTTYPE == OUTTYPE_HDF5) {
+      string fext = ".txt";
+      if (OUTTYPE == OUTTYPE_HDF5) {
+        fext = ".h5";
+      }
+
+      fs::path outFile = fs::change_extension(OUTDIR / imgpath, fext);
       if (output.size() > 1) {
-        outFile = fs::change_extension(OUTDIR / fs::path(layers[0]) / imgpath, ".txt");
+        outFile = fs::change_extension(OUTDIR / fs::path(layers[0]) / imgpath, fext);
       }
       if (!lock(outFile)) {
         continue;
@@ -226,16 +235,16 @@ main(int argc, char *argv[]) {
       computeFeaturesPipeline(caffe_test_net, Is, layers, 
           BATCH_SIZE, output, false, POOLTYPE, NORMALIZE);
       for (int l = 0; l < output.size(); l++) {
-        fs::path thisoutFile = fs::change_extension(OUTDIR / imgpath, ".txt");
+        fs::path thisoutFile = fs::change_extension(OUTDIR / imgpath, fext);
         if (output.size() > 1) {
-          thisoutFile = fs::change_extension(OUTDIR / fs::path(layers[l]) / imgpath, ".txt");
+          thisoutFile = fs::change_extension(OUTDIR / fs::path(layers[l]) / imgpath, fext);
         }
         fs::create_directories(thisoutFile.parent_path());
-        FILE* fout = fopen(thisoutFile.string().c_str(), "w");
-        for (int i = 0; i < output[l].size(); i++) {
-          dumpFeature(fout, output[l][i]);
+        if (OUTTYPE == OUTTYPE_TEXT) {
+          dumpFeatures_txt(thisoutFile, output[l]);
+        } else {
+          dumpFeatures_hdf5(thisoutFile, output[l]);
         }
-        fclose(fout);
       }
       unlock(outFile);
     } else if (OUTTYPE == OUTTYPE_LMDB) {
@@ -262,15 +271,22 @@ main(int argc, char *argv[]) {
   return 0;
 }
 
-inline void dumpFeature(FILE* fout, const vector<float>& feat) {
-  for (int i = 0; i < feat.size(); i++) {
-    if (feat[i] == 0) {
-      fprintf(fout, "0 ");
-    } else {
-      fprintf(fout, "%f ", feat[i]);
+inline void dumpFeatures_txt(const fs::path& fpath, const vector<vector<float>>& feats) {
+  FILE* fout = fopen(fpath.string().c_str(), "w");
+  for (int fi = 0; fi < feats.size(); fi++) {
+    for (int i = 0; i < feats[fi].size(); i++) {
+      if (feats[fi][i] == 0) {
+        fprintf(fout, "0 ");
+      } else {
+        fprintf(fout, "%f ", feats[fi][i]);
+      }
     }
+    fprintf(fout, "\n");
   }
-  fprintf(fout, "\n");
+  fclose(fout);
+}
+
+inline void dumpFeatures_hdf5(const fs::path& fpath, const vector<vector<float>>& feats) {
 }
 
 inline long long hashCompleteName(long long imgid, int id) { // imgid is 1 indexed, id is 0 indexed
