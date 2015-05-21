@@ -197,5 +197,21 @@ void poolFeatures(vector<vector<float>>& feats, const string& pooltype) {
   feats.push_back(res);
 }
 
+template <typename Dtype>
+void convertBlobToMat(const Blob<Dtype>& blob, Mat& mat, int n = 0) {
+  // n defines the specific image in the blob
+  int wd = blob.width();
+  int ht = blob.height();
+  int ch = blob.channels();
+  mat = Mat(ht, wd, CV_8UC3);
+  for (int c = 0; c < ch; c++) {
+    for (int h = 0; h < ht; h++) {
+      for (int w = 0; w < wd; w++) {
+        mat.at<Vec3b>(h, w)[c] = (uint8_t) blob.data_at(n, c, h, w);
+      }
+    }
+  }
+}
+
 #endif
 
