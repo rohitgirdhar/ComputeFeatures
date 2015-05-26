@@ -9,11 +9,15 @@ import base64
 import skimage.io
 from StringIO import StringIO
 import numpy as np
+import time
 
 def convertJPEGb64ToCaffeImage(img_data_coded):
-  img_data = base64.b64decode(img_data_coded)
+  try:
+    img_data = base64.b64decode(img_data_coded)
+    img = skimage.io.imread(StringIO(img_data))
+  except:
+    return np.zeros((256,256,3))
   # inspired from caffe.io.load_image
-  img = skimage.io.imread(StringIO(img_data))
   img = skimage.img_as_float(img).astype(np.float32)
   if img.ndim == 2:
     img = img[:, :, np.newaxis]
@@ -65,15 +69,24 @@ def runFeatExt(imgslist, model, hbasetable, stor, normalize = False):
   cur_pos = 0
   while cur_pos < len(imgslist):
     print('Doing for %s (%d / %d)' %(imgslist[cur_pos], cur_pos, len(imgslist)))
+    start_time = time.time()
     next_pos = min(cur_pos + batchSize, len(imgslist))
     batch = imgslist[cur_pos : next_pos]
     imgs = getImagesFromIds(batch, hbasetable)
+    loadImg_time = time.time()
     feats = extractPool5Features(imgs, model, normalize)
+    featExt_time = time.time()
     # save the feats
     j = 0
     for i in range(cur_pos, next_pos):
       saveFeat(feats[j, :], i * 10000 + 1, stor)
       j += 1
+    save_time = time.time()
+    print('Done in \n\tTotal: %d msec\n\tLoad: %d\n\tFeatExt: %d\n\tSave: %d' 
+        % ((save_time - start_time) * 1000, 
+           (loadImg_time - start_time) * 1000, 
+           (featExt_time - loadImg_time) * 1000, 
+           (save_time - featExt_time) * 1000))
     cur_pos = next_pos
 
 def main():
