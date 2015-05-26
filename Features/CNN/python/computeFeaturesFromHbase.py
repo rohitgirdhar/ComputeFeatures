@@ -10,13 +10,19 @@ import skimage.io
 from StringIO import StringIO
 import numpy as np
 import time
+import operator
 
 def convertJPEGb64ToCaffeImage(img_data_coded):
+  black_image = np.zeros((256,256,3))
   try:
     img_data = base64.b64decode(img_data_coded)
     img = skimage.io.imread(StringIO(img_data))
   except:
-    return np.zeros((256,256,3))
+    return black_image
+  if reduce(operator.mul, np.shape(img)) == 0:
+    return black_image
+  if np.shape(img)[2] > 3:
+    return black_image
   # inspired from caffe.io.load_image
   img = skimage.img_as_float(img).astype(np.float32)
   if img.ndim == 2:
@@ -40,7 +46,9 @@ def loadCaffeModels():
 
 # @return: a nImgs x 9216D numpy array
 def extractPool5Features(imgs, model, normalize = False):
-  features = model.predict(imgs)
+  nImgs = len(imgs)
+  features = model.predict(imgs, oversample = False)
+  features = np.squeeze(np.reshape(features, (nImgs, -1, 1, 1)))
   if normalize:
     row_norms = np.linalg.norm(features, 2, axis=1)
     features = features / row_norms[:, np.newaxis]
@@ -64,9 +72,9 @@ def saveFeat(feat, id, stor):
     f.append(float(feat[i]))
   stor.Put(id, f)
 
-def runFeatExt(imgslist, model, hbasetable, stor, normalize = False):
+def runFeatExt(imgslist, model, hbasetable, stor, start_pos, normalize = False):
   batchSize = model.blobs['data'].num
-  cur_pos = 0
+  cur_pos = start_pos
   while cur_pos < len(imgslist):
     print('Doing for %s (%d / %d)' %(imgslist[cur_pos], cur_pos, len(imgslist)))
     start_time = time.time()
@@ -96,7 +104,8 @@ def main():
   model = loadCaffeModels()
   stor = PyDiskVectorLMDB.DiskVectorLMDB('/home/rgirdhar/memexdata/Dataset/processed/0004_IST/Features/pool5_normed', False)
   imgslist = readList('/home/rgirdhar/memexdata/Dataset/processed/0004_IST/lists/Images.txt')
-  runFeatExt(imgslist, model, tab, stor, normalize=True)
+  start_pos = 0 # default = 0
+  runFeatExt(imgslist, model, tab, stor, start_pos, normalize=True)
 
 if __name__ == '__main__':
   main()
