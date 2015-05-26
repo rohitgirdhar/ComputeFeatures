@@ -10,9 +10,6 @@ import skimage.io
 from StringIO import StringIO
 import numpy as np
 
-def extractFeatures():
-  pass
-
 def convertJPEGb64ToCaffeImage(img_data_coded):
   img_data = base64.b64decode(img_data_coded)
   # inspired from caffe.io.load_image
@@ -27,7 +24,7 @@ def convertJPEGb64ToCaffeImage(img_data_coded):
   return img
 
 def loadCaffeModels():
-  MODEL_FILE = os.path.join('/home/rgirdhar/memexdata/Dataset/processed/0004_IST/run_scripts/deploy.prototxt')
+  MODEL_FILE = os.path.join('/home/rgirdhar/memexdata/Dataset/processed/0004_IST/run_scripts/deploy_pool5.prototxt')
   PRETRAINED = os.path.join('/home/rgirdhar/data/Software/vision/caffe/models/bvlc_reference_caffenet/bvlc_reference_caffenet.caffemodel')
   mean_image = np.load(caffe_root + 'python/caffe/imagenet/ilsvrc_2012_mean.npy').mean(1).mean(1)
   print np.shape(mean_image)
@@ -37,19 +34,56 @@ def loadCaffeModels():
       image_dims=(256,256))
   return net
 
+# @return: a nImgs x 9216D numpy array
+def extractPool5Features(imgs, model, normalize = False):
+  features = model.predict(imgs)
+  if normalize:
+    row_norms = np.linalg.norm(features, 2, axis=1)
+    features = features / row_norms[:, np.newaxis]
+  return features
+
 def readList(fpath):
   f = open(fpath)
   res = f.read().splitlines()
   f.close()
   return res
 
+def getImagesFromIds(ids, hbasetable):
+  imgs = []
+  for i in ids:
+    imgs.append(convertJPEGb64ToCaffeImage(hbasetable.row(i)['image:orig']))
+  return imgs
+
+def saveFeat(feat, id, stor):
+  f = PyDiskVectorLMDB.FeatureVector()
+  for i in range(np.shape(feat)[0]):
+    f.append(float(feat[i]))
+  stor.Put(id, f)
+
+def runFeatExt(imgslist, model, hbasetable, stor, normalize = False):
+  batchSize = model.blobs['data'].num
+  cur_pos = 0
+  while cur_pos < len(imgslist):
+    print('Doing for %s (%d / %d)' %(imgslist[cur_pos], cur_pos, len(imgslist)))
+    next_pos = min(cur_pos + batchSize, len(imgslist))
+    batch = imgslist[cur_pos : next_pos]
+    imgs = getImagesFromIds(batch, hbasetable)
+    feats = extractPool5Features(imgs, model, normalize)
+    # save the feats
+    j = 0
+    for i in range(cur_pos, next_pos):
+      saveFeat(feats[j, :], i * 10000 + 1, stor)
+      j += 1
+    cur_pos = next_pos
+
 def main():
+  caffe.set_mode_gpu()
   conn = happybase.Connection('10.1.94.57')
   tab = conn.table('roxyscrape')
   model = loadCaffeModels()
+  stor = PyDiskVectorLMDB.DiskVectorLMDB('/home/rgirdhar/memexdata/Dataset/processed/0004_IST/Features/pool5_normed', False)
   imgslist = readList('/home/rgirdhar/memexdata/Dataset/processed/0004_IST/lists/Images.txt')
-
-  I = convertJPEGb64ToCaffeImage(tab.row('19186517')['image:orig'])
+  runFeatExt(imgslist, model, tab, stor, normalize=True)
 
 if __name__ == '__main__':
   main()
