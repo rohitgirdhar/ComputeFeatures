@@ -20,6 +20,7 @@ using namespace std;
 using namespace std::chrono;
 using namespace caffe;
 using namespace cv;
+using namespace CNNFeatureUtils;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -33,15 +34,6 @@ namespace fs = boost::filesystem;
 void dumpFeatures_txt(const fs::path&, const vector<vector<float>>&);
 void dumpFeatures_hdf5(const fs::path&, vector<vector<float>>&);
 long long hashCompleteName(long long, int);
-template<typename Dtype>
-void computeFeaturesPipeline(Net<Dtype>& caffe_test_net,
-    const vector<Mat>& Is,
-    const vector<string>& layers,
-    int BATCH_SIZE,
-    vector<vector<vector<Dtype>>>& output,
-    bool verbose,
-    const string& POOLTYPE,
-    bool NORMALIZE);
 
 int
 main(int argc, char *argv[]) {
@@ -322,29 +314,5 @@ inline void dumpFeatures_hdf5(const fs::path& fpath, vector<vector<float>>& feat
 inline long long hashCompleteName(long long imgid, int id) { // imgid is 1 indexed, id is 0 indexed
   // both will be 1 indexed <convention set Saturday 11 April 2015 01:57:20 AM GMT>
   return imgid * MAXFEATPERIMG + id + 1;
-}
-
-template<typename Dtype>
-void computeFeaturesPipeline(Net<Dtype>& caffe_test_net,
-    const vector<Mat>& Is,
-    const vector<string>& layers,
-    int BATCH_SIZE,
-    vector<vector<vector<Dtype>>>& output,
-    bool verbose,
-    const string& POOLTYPE,
-    bool NORMALIZE) {
-  computeFeatures(caffe_test_net, Is, layers, BATCH_SIZE, output, verbose);
-  if (! POOLTYPE.empty()) {
-    // assuming all layers need to be pooled
-    for (int l = 0; l < output.size(); l++) {
-      poolFeatures(output[l], POOLTYPE);
-    }
-  }
-  if (NORMALIZE) {
-    // assuming all layers need to be normalized
-    for (int i = 0; i < output.size(); i++) {
-      l2NormalizeFeatures(output[i]);
-    }
-  }
 }
 

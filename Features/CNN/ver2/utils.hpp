@@ -11,6 +11,7 @@ using namespace caffe;
 using namespace cv;
 namespace fs = boost::filesystem;
 
+namespace CNNFeatureUtils {
 
 template<typename Dtype>
 void computeFeatures(Net<Dtype>& caffe_test_net,
@@ -211,6 +212,32 @@ void convertBlobToMat(const Blob<Dtype>& blob, Mat& mat, int n = 0) {
       }
     }
   }
+}
+
+template<typename Dtype>
+void computeFeaturesPipeline(Net<Dtype>& caffe_test_net,
+    const vector<Mat>& Is,
+    const vector<string>& layers,
+    int BATCH_SIZE,
+    vector<vector<vector<Dtype>>>& output,
+    bool verbose,
+    const string& POOLTYPE,
+    bool NORMALIZE) {
+  computeFeatures(caffe_test_net, Is, layers, BATCH_SIZE, output, verbose);
+  if (! POOLTYPE.empty()) {
+    // assuming all layers need to be pooled
+    for (int l = 0; l < output.size(); l++) {
+      poolFeatures(output[l], POOLTYPE);
+    }
+  }
+  if (NORMALIZE) {
+    // assuming all layers need to be normalized
+    for (int i = 0; i < output.size(); i++) {
+      l2NormalizeFeatures(output[i]);
+    }
+  }
+}
+
 }
 
 #endif
