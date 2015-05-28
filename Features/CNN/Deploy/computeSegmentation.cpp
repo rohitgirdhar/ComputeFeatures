@@ -29,7 +29,7 @@ void computeFeaturesPipeline(Net<Dtype>& caffe_test_net,
     bool verbose,
     const string& POOLTYPE,
     bool NORMALIZE);
-void genSegImg(float xmin, float ymin, float xmax, float ymax, const Mat& S, Mat& res, int, int, int);
+void genSegImg(float xmin, float ymin, float xmax, float ymax, const Mat& S, Mat& res, int, int);
 
 int
 main(int argc, char *argv[]) {
@@ -84,14 +84,16 @@ main(int argc, char *argv[]) {
   vector<string> seg_layers = {"fc8_seg"};
 
   string imgpath = "/srv2/rgirdhar/Work/Datasets/processed/0006_ExtendedPAL/corpus/AbuSimbel/people_1.jpg";
- // string imgpath = "/home/rgirdhar/memexdata/Dataset/processed/0001_Backpage/Images/corpus/ImagesTexas/Texas_2012_10_10_1349841918000_4_2.jpg";
+  //string imgpath = "/home/rgirdhar/memexdata/Dataset/processed/0001_Backpage/Images/corpus/ImagesTexas/Texas_2012_10_10_1349841918000_4_0.jpg";
+  //string imgpath = "/home/rgirdhar/memexdata/Dataset/processed/0001_Backpage/Images/corpus/ImagesTexas/Texas_2012_10_10_1349846732000_6_5.jpg";
+  //string imgpath = "/home/rgirdhar/memexdata/Dataset/processed/0001_Backpage/Images/corpus/ImagesCalifornia/California_image_2012_7_9_1341859695000_2_0.jpg";
   vector<Mat> Is;
   Mat I = imread(imgpath);
   if (!I.data) {
     LOG(ERROR) << "Unable to read " << imgpath;
     return -1;
   }
-  resize(I, I, Size(256, 256)); // rest of the transformation will run
+  resize(I, I, Size(256, 256));
   Is.push_back(I);
   // [layer[image[feature]]]
   vector<vector<vector<float>>> loc_output;
@@ -141,8 +143,6 @@ main(int argc, char *argv[]) {
   minMaxLoc(T, &minEl, &maxEl);
   cout << " mx  " << minEl << " " << maxEl << endl;
   */
-  imwrite("temp.jpg", T);
-
   
   for (int c = 0; c < 3; c++) {
     for (int h = 0; h < 55; h++) {
@@ -172,11 +172,11 @@ main(int argc, char *argv[]) {
   }
 //  flip(Res, Res, 1);
   Mat seg;
-  genSegImg(xmin, ymin, xmax, ymax, Res, seg, I.rows, I.cols, OFFSET);
+  genSegImg(xmin, ymin, xmax, ymax, Res, seg, I.rows, I.cols);
   Mat seg_uint;
   seg.convertTo(seg_uint, CV_8UC1);
   equalizeHist(seg_uint, seg_uint);
-  resize(seg_uint, seg_uint, I.size());
+  //resize(seg_uint, seg_uint, I.size());
   imwrite("final.jpg", seg_uint);
   vector<Mat> channels(3);
   split(I, channels);
@@ -188,7 +188,7 @@ main(int argc, char *argv[]) {
   // normalize(Res, Res, 0, 255, NORM_MINMAX, CV_8UC1);
   
   // equalizeHist(Res, Res);
-  // imwrite("final.jpg", I);
+  imwrite("over.jpg", I);
   return 0;
 }
 
@@ -217,13 +217,9 @@ void computeFeaturesPipeline(Net<Dtype>& caffe_test_net,
 }
 
 void genSegImg(float xmin, float ymin, float xmax, float ymax, const Mat& S, Mat& res,
-    int NW_IMG_HT, int NW_IMG_WID, int OFFSET) {
+    int NW_IMG_HT, int NW_IMG_WID) {
   res = Mat(NW_IMG_HT, NW_IMG_WID, CV_32FC1);
   res.setTo(0);
-  xmin = std::min(std::max(xmin + OFFSET, (float) 0), (float) NW_IMG_WID-1);
-  ymin = std::min(std::max(ymin + OFFSET, (float) 0), (float) NW_IMG_HT-1);
-  xmax = std::min(std::max(xmax + OFFSET, (float) 0), (float) NW_IMG_WID-1);
-  ymax = std::min(std::max(ymax + OFFSET, (float) 0), (float) NW_IMG_HT-1);
   int x1 = xmin;
   int y1 = ymin;
   int x2 = xmax;
