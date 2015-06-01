@@ -12,7 +12,7 @@ import numpy as np
 import time
 import operator
 
-def convertJPEGb64ToCaffeImage(img_data_coded):
+def convertJPEGb64ToCaffeImage(img_data_coded, color):
   black_image = np.zeros((256,256,3))
   try:
     img_data = base64.b64decode(img_data_coded)
@@ -21,16 +21,14 @@ def convertJPEGb64ToCaffeImage(img_data_coded):
     return black_image
   if reduce(operator.mul, np.shape(img)) == 0:
     return black_image
-  if np.shape(img)[2] > 3:
-    return black_image
   # inspired from caffe.io.load_image
   img = skimage.img_as_float(img).astype(np.float32)
   if img.ndim == 2:
     img = img[:, :, np.newaxis]
     if color:
       img = np.tile(img, (1, 1, 3))
-    elif img.shape[2] == 4:
-      img = img[:, :, :3]
+  elif img.shape[2] == 4:
+    img = img[:, :, :3]
   return img
 
 def loadCaffeModels():
@@ -63,7 +61,7 @@ def readList(fpath):
 def getImagesFromIds(ids, hbasetable):
   imgs = []
   for i in ids:
-    imgs.append(convertJPEGb64ToCaffeImage(hbasetable.row(i)['image:orig']))
+    imgs.append(convertJPEGb64ToCaffeImage(hbasetable.row(i)['image:orig'], True))
   return imgs
 
 def saveFeat(feat, id, stor):
@@ -72,22 +70,38 @@ def saveFeat(feat, id, stor):
     f.append(float(feat[i]))
   stor.Put(id, f)
 
-def runFeatExt(imgslist, model, hbasetable, stor, start_pos, normalize = False):
+# assumes start_pos 0 indexed
+# o/p is also 0 indexed
+def getUniqImgIdsList(fpath, start_pos):
+  with open(fpath) as f:
+    uniqornot = [el[0] for el in f.read().splitlines()[start_pos : ]]
+  lno = start_pos
+  res = []
+  for i in uniqornot:
+    if i == 'U':
+      res.append(lno)
+    lno += 1
+  return res
+
+# uniqImIds is 0 indexed
+def runFeatExt(imgslist, uniqImIds, model, hbasetable, stor, normalize = False):
   batchSize = model.blobs['data'].num
-  cur_pos = start_pos
-  while cur_pos < len(imgslist):
-    print('Doing for %s (%d / %d)' %(imgslist[cur_pos], cur_pos, len(imgslist)))
+  batches = [uniqImIds[i:i+batchSize] for i in range(0, len(uniqImIds), batchSize)]
+  bid = 1
+  for batch in batches:
+    print('Doing for %s, batch (%d / %d)' %(imgslist[batch[0]], bid, len(batches)))
     start_time = time.time()
-    next_pos = min(cur_pos + batchSize, len(imgslist))
-    batch = imgslist[cur_pos : next_pos]
-    imgs = getImagesFromIds(batch, hbasetable)
+    batch_imglist = []
+    for el in batch:
+      batch_imglist.append(imgslist[el])
+    imgs = getImagesFromIds(batch_imglist, hbasetable)
     loadImg_time = time.time()
     feats = extractPool5Features(imgs, model, normalize)
     featExt_time = time.time()
     # save the feats
     j = 0
-    for i in range(cur_pos, next_pos):
-      saveFeat(feats[j, :], i * 10000 + 1, stor)
+    for i in batch:
+      saveFeat(feats[j, :], (i + 1) * 10000 + 1, stor)
       j += 1
     save_time = time.time()
     print('Done in \n\tTotal: %d msec\n\tLoad: %d\n\tFeatExt: %d\n\tSave: %d' 
@@ -95,7 +109,7 @@ def runFeatExt(imgslist, model, hbasetable, stor, start_pos, normalize = False):
            (loadImg_time - start_time) * 1000, 
            (featExt_time - loadImg_time) * 1000, 
            (save_time - featExt_time) * 1000))
-    cur_pos = next_pos
+    bid += 1
 
 def main():
   caffe.set_mode_gpu()
@@ -104,8 +118,10 @@ def main():
   model = loadCaffeModels()
   stor = PyDiskVectorLMDB.DiskVectorLMDB('/home/rgirdhar/memexdata/Dataset/processed/0004_IST/Features/pool5_normed', False)
   imgslist = readList('/home/rgirdhar/memexdata/Dataset/processed/0004_IST/lists/Images.txt')
-  start_pos = 0 # default = 0
-  runFeatExt(imgslist, model, tab, stor, start_pos, normalize=True)
+  #start_pos = 2617800 # default = 0, 0 indexed
+  start_pos = 0 # default = 0, 0 indexed
+  uniqImIds = getUniqImgIdsList('/home/rgirdhar/memexdata/Dataset/processed/0004_IST/lists/Uniq_sha1.txt', start_pos)
+  runFeatExt(imgslist, uniqImIds, model, tab, stor, normalize=True)
 
 if __name__ == '__main__':
   main()
