@@ -118,6 +118,20 @@ void readList(const fs::path& fpath, vector<Dtype>& output) {
   ifs.close();
 }
 
+/**
+ * Read any list of Dtype element with spaces, separated by newline
+ */
+template<typename Dtype>
+void readList_withSpaces(const fs::path& fpath, vector<Dtype>& output) {
+  output.clear();
+  string el_str;
+  ifstream ifs(fpath.string());
+  while (getline(ifs, el_str)) {
+    output.push_back(Dtype(el_str));
+  }
+  ifs.close();
+}
+
 template<typename Dtype>
 void l2NormalizeFeatures(vector<vector<Dtype>>& feats) {
   #pragma omp parallel for
