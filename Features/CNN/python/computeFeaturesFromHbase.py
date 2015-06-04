@@ -22,7 +22,11 @@ def convertJPEGb64ToCaffeImage(img_data_coded, color):
   if reduce(operator.mul, np.shape(img)) == 0:
     return black_image
   # inspired from caffe.io.load_image
-  img = skimage.img_as_float(img).astype(np.float32)
+  try:
+    img = skimage.img_as_float(img).astype(np.float32)
+  except:
+    print 'Unable to convert image to float32. Returning black image'
+    img = black_image
   if img.ndim == 2:
     img = img[:, :, np.newaxis]
     if color:
@@ -119,7 +123,8 @@ def main():
   stor = PyDiskVectorLMDB.DiskVectorLMDB('/home/rgirdhar/memexdata/Dataset/processed/0004_IST/Features/pool5_normed', False)
   imgslist = readList('/home/rgirdhar/memexdata/Dataset/processed/0004_IST/lists/Images.txt')
   #start_pos = 2617800 # default = 0, 0 indexed
-  start_pos = 0 # default = 0, 0 indexed
+  # start_pos is the position in the Images.txt file (0 indexed)
+  start_pos = 9140196 # default = 0, 0 indexed
   uniqImIds = getUniqImgIdsList('/home/rgirdhar/memexdata/Dataset/processed/0004_IST/lists/Uniq_sha1.txt', start_pos)
   runFeatExt(imgslist, uniqImIds, model, tab, stor, normalize=True)
 
