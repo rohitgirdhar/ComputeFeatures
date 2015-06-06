@@ -36,6 +36,7 @@ void dumpFeatures_txt(const fs::path&, const vector<vector<float>>&);
 void dumpFeatures_hdf5(const fs::path&, vector<vector<float>>&);
 long long hashCompleteName(long long, int);
 void readImageUsingService(const string&, Mat&);
+void readSegUsingService(const Mat&, Mat&);
 
 int
 main(int argc, char *argv[]) {
@@ -127,7 +128,8 @@ main(int argc, char *argv[]) {
     LOG(FATAL) << "Unknown output-type " << vm["output-type"].as<string>();
   }
 
-  if (SEGDIR.string().length() > 0 && fs::exists(SEGDIR)) {
+  if (SEGDIR.string().length() > 0 && (fs::exists(SEGDIR) || 
+        SEGDIR.string().compare("service") == 0)) {
     LOG(INFO) << "Will be pruning the bounding boxes using "
               << "segmentation information";
   } else {
@@ -195,11 +197,17 @@ main(int argc, char *argv[]) {
 
     // check if segdir defined. If so, then prune the list of bboxes
     if (SEGDIR.string().length() > 0) {
-      fs::path segpath = SEGDIR / imgpath;
-      if (!fs::exists(segpath)) {
-        LOG(ERROR) << "Segmentation information not found for " << segpath;
+      if (SEGDIR.string().compare("service") == 0) {
+        Mat S;
+        readSegUsingService(I, S);
+        pruneBboxesWithSeg(I.size(), S, bboxes);
       } else {
-        pruneBboxesWithSeg(I.size(), segpath, bboxes, S);
+        fs::path segpath = SEGDIR / imgpath;
+        if (!fs::exists(segpath)) {
+          LOG(ERROR) << "Segmentation information not found for " << segpath;
+        } else {
+          pruneBboxesWithSeg(I.size(), segpath, bboxes, S);
+        }
       }
     }
 
@@ -344,5 +352,30 @@ void readImageUsingService(const string& imid, Mat& I) {
   char *reply_data = static_cast<char*>(reply.data());
   vector<char> reply_vector_str(reply_data, reply_data + reply.size());
   I = imdecode(reply_vector_str, CV_LOAD_IMAGE_COLOR);
+}
+
+void readSegUsingService(const Mat& I, Mat& S) {
+  const int port_num = 5556;
+  const string TEMP_SEG_DIR = "/tmp/segtemp/computeFeatures/";
+  const string qimg_path = TEMP_SEG_DIR + "img.jpg";
+  const string res_path = "/srv2/rgirdhar/Work/Code/0005_ObjSegment/scripts/service_scripts/temp-dir/result.jpg"; 
+
+  static bool initialized = false;
+  static zmq::context_t *context = NULL;
+  static zmq::socket_t *socket = NULL;
+  if (! initialized) {
+    context = new zmq::context_t(1);
+    socket = new zmq::socket_t(*context, ZMQ_REQ);
+    socket->connect(("tcp://localhost:" + to_string(port_num)).c_str());
+    initialized = true;
+  }
+  imwrite(qimg_path.c_str(), I);
+  zmq::message_t request(qimg_path.length());
+  memcpy((void *) request.data(), qimg_path.c_str(), qimg_path.length());
+  socket->send(request);
+
+  zmq::message_t reply;
+  socket->recv(&reply);
+  S = imread(res_path, CV_LOAD_IMAGE_GRAYSCALE);
 }
 
