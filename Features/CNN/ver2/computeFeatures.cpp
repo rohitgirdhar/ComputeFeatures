@@ -10,6 +10,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp> // for to_lower
 #include <hdf5.h>
+#include <zmq.hpp>
 #include "caffe/caffe.hpp"
 #include "utils.hpp"
 //#include "external/DiskVector/DiskVector.hpp"
@@ -34,6 +35,7 @@ namespace fs = boost::filesystem;
 void dumpFeatures_txt(const fs::path&, const vector<vector<float>>&);
 void dumpFeatures_hdf5(const fs::path&, vector<vector<float>>&);
 long long hashCompleteName(long long, int);
+void readImageUsingService(const string&, Mat&);
 
 int
 main(int argc, char *argv[]) {
@@ -170,7 +172,13 @@ main(int argc, char *argv[]) {
     }
 
     vector<Mat> Is;
-    Mat I = imread((IMGSDIR / imgpath).string());
+    Mat I;
+    if (IMGSDIR.compare("service") == 0) {
+      // read the image from the hbase based image read service
+      readImageUsingService(imgpath.string(), I);
+    } else {
+      I = imread((IMGSDIR / imgpath).string());
+    }
     Mat S; // get the segmentation image as well, used in debugging
     if (!I.data) {
       LOG(ERROR) << "Unable to read " << imgpath;
@@ -314,5 +322,27 @@ inline void dumpFeatures_hdf5(const fs::path& fpath, vector<vector<float>>& feat
 inline long long hashCompleteName(long long imgid, int id) { // imgid is 1 indexed, id is 0 indexed
   // both will be 1 indexed <convention set Saturday 11 April 2015 01:57:20 AM GMT>
   return imgid * MAXFEATPERIMG + id + 1;
+}
+
+void readImageUsingService(const string& imid, Mat& I) {
+  const int port_num = 5554;
+  static bool initialized = false;
+  static zmq::context_t *context = NULL;
+  static zmq::socket_t *socket = NULL;
+  if (! initialized) {
+    context = new zmq::context_t(1);
+    socket = new zmq::socket_t(*context, ZMQ_REQ);
+    socket->connect(("tcp://localhost:" + to_string(port_num)).c_str());
+    initialized = true;
+  }
+  zmq::message_t request(imid.length());
+  memcpy((void *) request.data(), imid.c_str(), imid.length());
+  socket->send(request);
+
+  zmq::message_t reply;
+  socket->recv(&reply);
+  char *reply_data = static_cast<char*>(reply.data());
+  vector<char> reply_vector_str(reply_data, reply_data + reply.size());
+  I = imdecode(reply_vector_str, CV_LOAD_IMAGE_COLOR);
 }
 
