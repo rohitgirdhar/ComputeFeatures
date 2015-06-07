@@ -183,6 +183,24 @@ void pruneBboxesWithSeg(const Size& I_size,
   bboxes = res;
 }
 
+void pruneBboxesWithSeg(const Size& I_size, 
+    const Mat& S_orig, vector<Rect>& bboxes) {
+  // TODO (rg): speed up by using integral images
+  vector<Rect> res;
+  // resize to the same size as I
+  Mat S;
+  resize(S_orig, S, I_size);
+  for (int i = 0; i < bboxes.size(); i++) {
+    int in = cv::sum(S(bboxes[i]))[0]; 
+    int tot = bboxes[i].width * bboxes[i].height;
+    if (in * 1.0f / tot < PERC_FGOVERLAP_FOR_BG) { // bg patch
+      res.push_back(bboxes[i]);
+    }
+  }
+  bboxes = res;
+}
+
+
 void DEBUG_storeWindows(const vector<Mat>& Is, fs::path fpath, 
     const Mat& I, const Mat& S) {
   fs::create_directories(fpath);
@@ -250,6 +268,20 @@ void computeFeaturesPipeline(Net<Dtype>& caffe_test_net,
       l2NormalizeFeatures(output[i]);
     }
   }
+}
+
+void getUniqueIds(const fs::path& fpath, vector<long long>& ids) {
+  ids.clear();
+  ifstream fin(fpath.string().c_str());
+  string line;
+  long long lno = 0;
+  while (getline(fin, line)) {
+    lno += 1;
+    if (line[0] == 'U') {
+      ids.push_back(lno);
+    }
+  }
+  fin.close();
 }
 
 }

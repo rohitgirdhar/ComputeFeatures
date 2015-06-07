@@ -7,9 +7,9 @@ CUDA_ROOT := /usr/local/cuda
 CPU_ONLY := 0
 
 CXXFLAGS += -std=c++0x -fopenmp -O2 -g
-LIBS += -L$(CAFFE_ROOT)/build/lib -L/usr/local/lib/
-LDFLAGS += -lcaffe -lglog -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -llmdb -lopencv_core -lopencv_imgproc -lopencv_imgcodecs -lhdf5
-INC += -I$(CAFFE_ROOT)/include/ -I$(CAFFE_ROOT)/build/src/ -I/usr/local/include/opencv2/ -I../
+LIBS += -L$(CAFFE_ROOT)/build/lib -L/usr/local/lib/ -L/srv2/rgirdhar/Software/cpp/zeromq/install/lib/
+LDFLAGS += -lcaffe -lglog -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -llmdb -lopencv_core -lopencv_imgproc -lopencv_imgcodecs -lhdf5 -lzmq
+INC += -I$(CAFFE_ROOT)/include/ -I$(CAFFE_ROOT)/build/src/ -I/usr/local/include/opencv2/ -I../ -I/srv2/rgirdhar/Software/cpp/zeromq/cppzmq/ -I /srv2/rgirdhar/Software/cpp/zeromq/install/include/
 ifneq ($(CPU_ONLY),1)
     LIBS += -L$(CUDA_ROOT)/lib64
     INC += -I$(CUDA_ROOT)/include

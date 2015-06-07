@@ -88,6 +88,8 @@ main(int argc, char *argv[]) {
     ("ids2compute4", po::value<string>()->default_value(""),
      "File with list of image ids (1 indexed) to compute the features"
      "for. If not specified, computes from start img idx to end")
+    ("uniquelist", po::value<string>()->default_value(""),
+     "File with unique/duplicate information using SHA1")
     ;
 
   po::variables_map vm;
@@ -151,6 +153,8 @@ main(int argc, char *argv[]) {
   vector<long long> ids2compute4;
   if (vm["ids2compute4"].as<string>().length() > 0) {
     readList(vm["ids2compute4"].as<string>(), ids2compute4);
+  } else if (vm["uniquelist"].as<string>().length() > 0) {
+    getUniqueIds(fs::path(vm["uniquelist"].as<string>()), ids2compute4);
   } else {
     for (long long imgid = START_IMGID; imgid <= imgs.size(); imgid++) {
       ids2compute4.push_back(imgid);
