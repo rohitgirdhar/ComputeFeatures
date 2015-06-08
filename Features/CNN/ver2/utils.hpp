@@ -270,13 +270,16 @@ void computeFeaturesPipeline(Net<Dtype>& caffe_test_net,
   }
 }
 
-void getUniqueIds(const fs::path& fpath, vector<long long>& ids) {
+void getUniqueIds(const fs::path& fpath, vector<long long>& ids, long long start_img_id = 1) {
   ids.clear();
   ifstream fin(fpath.string().c_str());
   string line;
   long long lno = 0;
   while (getline(fin, line)) {
     lno += 1;
+    if (lno < start_img_id) {
+      continue;
+    }
     if (line[0] == 'U') {
       ids.push_back(lno);
     }

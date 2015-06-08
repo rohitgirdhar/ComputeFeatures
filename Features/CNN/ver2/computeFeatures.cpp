@@ -77,7 +77,7 @@ main(int argc, char *argv[]) {
      "Directory with images with same filename as in the corpus images dir "
      "but uses it to prune the set of windows. "
      "By default keeps only those overlapping <0.2 with FG")
-    ("startimgid,z", po::value<int>()->default_value(1),
+    ("startimgid,z", po::value<long long>()->default_value(1),
      "The image id of the first image in the list."
      "Useful for testing parts of dataset because the selsearch boxes" 
      "etc use the image ids. Give 1 indexed")
@@ -118,7 +118,7 @@ main(int argc, char *argv[]) {
   fs::path SEGDIR = fs::path(vm["segdir"].as<string>());
   string POOLTYPE = vm["pool"].as<string>();
   bool NORMALIZE = vm["normalize"].as<bool>();
-  int START_IMGID = vm["startimgid"].as<int>();
+  long long START_IMGID = vm["startimgid"].as<long long>();
   int OUTTYPE = -1;
   if (vm["output-type"].as<string>().compare("text") == 0) {
     OUTTYPE = OUTTYPE_TEXT;
@@ -154,7 +154,7 @@ main(int argc, char *argv[]) {
   if (vm["ids2compute4"].as<string>().length() > 0) {
     readList(vm["ids2compute4"].as<string>(), ids2compute4);
   } else if (vm["uniquelist"].as<string>().length() > 0) {
-    getUniqueIds(fs::path(vm["uniquelist"].as<string>()), ids2compute4);
+    getUniqueIds(fs::path(vm["uniquelist"].as<string>()), ids2compute4, START_IMGID);
   } else {
     for (long long imgid = START_IMGID; imgid <= imgs.size(); imgid++) {
       ids2compute4.push_back(imgid);
