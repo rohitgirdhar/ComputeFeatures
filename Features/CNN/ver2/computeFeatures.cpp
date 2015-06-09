@@ -355,7 +355,12 @@ void readImageUsingService(const string& imid, Mat& I) {
   socket->recv(&reply);
   char *reply_data = static_cast<char*>(reply.data());
   vector<char> reply_vector_str(reply_data, reply_data + reply.size());
-  I = imdecode(reply_vector_str, CV_LOAD_IMAGE_COLOR);
+  try {
+    I = imdecode(reply_vector_str, CV_LOAD_IMAGE_COLOR);
+  } catch (cv::Exception& e) {
+    LOG(ERROR) << "Unable to read image at " << imid << ". Returning black image... ";
+    I = Mat(100, 100, CV_8UC3, Scalar(0,0,0));
+  }
 }
 
 void readSegUsingService(const Mat& I, Mat& S) {
