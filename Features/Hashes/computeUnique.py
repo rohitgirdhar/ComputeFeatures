@@ -1,4 +1,4 @@
-from computeSha1FromHbase import tic_toc_print
+from computeHashFromHbase import tic_toc_print
 hashesFile = '/memexdata/Dataset/processed/0004_IST/Features/SHA1/hashes.txt'
 outFile =  '/memexdata/Dataset/processed/0004_IST/lists/Uniq_sha1.txt'
 
