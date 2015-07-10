@@ -65,6 +65,8 @@ main(int argc, char *argv[]) {
      "Output format [txt/lmdb]")
     ("normalize,y", po::bool_switch()->default_value(false),
      "Enable feature L2 normalization")
+    ("start,s", po::value<long long>()->default_value(1),
+     "Image index (row number - 1 indexed - in the ImgsList file) to start with")
     ;
 
   po::variables_map vm;
@@ -100,7 +102,7 @@ main(int argc, char *argv[]) {
 
   // Get list of images in directory
   vector<fs::path> imgs;
-  readList<fs::path>(IMGSLST, imgs);
+  readList_withSpaces<fs::path>(IMGSLST, imgs);
   
   std::shared_ptr<DiskVectorLMDB<vector<float>>> dv;
   if (OUTTYPE.compare("lmdb") == 0) {
@@ -111,7 +113,7 @@ main(int argc, char *argv[]) {
   vector<Mat> Is;
   vector<long long> imgids;
   vector<fs::path> imgpaths;
-  for (long long imgid = 1; imgid <= imgs.size(); imgid++) {
+  for (long long imgid = vm["start"].as<long long>(); imgid <= imgs.size(); imgid++) {
     imgids.push_back(imgid);
     fs::path imgpath = imgs[imgid - 1];
     imgpaths.push_back(imgpath);
@@ -185,6 +187,8 @@ void computeAndStore(const vector<Mat>& Is,
 }
 
 long long getHash(long long id) { // id is 1 indexed
+  // TODO FIX THIS. Use consistent
+  // Since Saturday 11 April 2015 02:06:40 AM GMT : using both 1 indexed. 
   return id * MAXFEATPERIMG + 1;
 }
 
