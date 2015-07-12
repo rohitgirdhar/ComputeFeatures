@@ -165,6 +165,9 @@ main(int argc, char *argv[]) {
   if (OUTTYPE == OUTTYPE_LMDB) {
     dv = std::shared_ptr<DiskVectorLMDB<vector<float>>>(
         new DiskVectorLMDB<vector<float>>(OUTDIR));
+    // If it gets stuck here, it might be because the lock file is not
+    // letting it update an existing store (maybe a unnatural exit last time).
+    // Just delete the lock file (of course, if no other program is using it)
   }
   high_resolution_clock::time_point begin = high_resolution_clock::now();
   for (long long meta_i = 0; meta_i < ids2compute4.size(); meta_i++) {
