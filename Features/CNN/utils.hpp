@@ -111,6 +111,9 @@ void readList_withSpaces(const fs::path& fpath, vector<Dtype>& output) {
   output.clear();
   string line;
   ifstream ifs(fpath.string());
+  if (!ifs.is_open()) {
+    LOG(FATAL) << "Unable to open file " << fpath;
+  }
   while (getline(ifs, line)) {
     output.push_back(line);
   }

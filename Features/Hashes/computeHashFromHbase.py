@@ -40,10 +40,13 @@ def extractDhash(img, hash_size = 16):
   except:
     return ''
   # Grayscale and shrink the image in one step.
-  image = image.convert('L').resize(
-    (hash_size + 1, hash_size),
-    Image.ANTIALIAS,
-  )
+  try:
+    image = image.convert('L').resize(
+      (hash_size + 1, hash_size),
+      Image.ANTIALIAS,
+    )
+  except:
+    return ''
 
   pixels = list(image.getdata())
 
@@ -86,7 +89,7 @@ def main():
   conn = happybase.Connection('10.1.94.57')
   tab = conn.table('roxyscrape')
   imgslist = readList('/home/rgirdhar/memexdata/Dataset/processed/0004_IST/lists/Images.txt')
-  start_pos = 0 # default = 0
+  start_pos = 1256920 # default = 0
   runFeatExt(imgslist, tab, start_pos)
 
 if __name__ == '__main__':

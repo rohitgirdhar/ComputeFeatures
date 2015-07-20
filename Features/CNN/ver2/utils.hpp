@@ -112,6 +112,9 @@ void readList(const fs::path& fpath, vector<Dtype>& output) {
   output.clear();
   Dtype el;
   ifstream ifs(fpath.string());
+  if (!ifs.is_open()) {
+    LOG(FATAL) << "Unable to open file " << fpath;
+  }
   while (ifs >> el) {
     output.push_back(el);
   }
@@ -126,6 +129,9 @@ void readList_withSpaces(const fs::path& fpath, vector<Dtype>& output) {
   output.clear();
   string el_str;
   ifstream ifs(fpath.string());
+  if (!ifs.is_open()) {
+    LOG(FATAL) << "Unable to open file " << fpath;
+  }
   while (getline(ifs, el_str)) {
     output.push_back(Dtype(el_str));
   }
