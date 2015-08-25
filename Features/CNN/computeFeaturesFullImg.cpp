@@ -67,6 +67,8 @@ main(int argc, char *argv[]) {
      "Enable feature L2 normalization")
     ("start,s", po::value<long long>()->default_value(1),
      "Image index (row number - 1 indexed - in the ImgsList file) to start with")
+    ("compressedFeatStor", po::bool_switch()->default_value(false),
+     "Store features in LMDB with zlib compression")
     ;
 
   po::variables_map vm;
@@ -107,7 +109,7 @@ main(int argc, char *argv[]) {
   std::shared_ptr<DiskVectorLMDB<vector<float>>> dv;
   if (OUTTYPE.compare("lmdb") == 0) {
     dv = std::shared_ptr<DiskVectorLMDB<vector<float>>>(
-        new DiskVectorLMDB<vector<float>>(OUTDIR));
+        new DiskVectorLMDB<vector<float>>(OUTDIR, 0, vm["compressedFeatStor"].as<bool>()));
   }
   // Create output directory
   vector<Mat> Is;
