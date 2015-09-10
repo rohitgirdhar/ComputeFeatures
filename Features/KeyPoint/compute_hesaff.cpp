@@ -12,6 +12,7 @@
 #include <opencv2/opencv.hpp>
 #include <vector>
 
+#include "locker.hpp"
 #include "hesaff/pyramid.h"
 #include "hesaff/helpers.h"
 #include "hesaff/affine.h"
@@ -153,8 +154,11 @@ int main(int argc, char **argv)
 
   #pragma omp parallel for
   for (size_t i = 1; i <= imnames.size(); i++) { // IMP: 1 indexed
-    Mat tmp = imread(indir + "/" + imnames[i]);
+    Mat tmp = imread(indir + "/" + imnames[i - 1]);
     string outfpath = outdir + "/" + to_string((long long)i) + ".hesaff.sift";
+    if (!Locker::lock(outfpath)) {
+      continue;
+    }
 
     Mat image(tmp.rows, tmp.cols, CV_32FC1, Scalar(0));
 
@@ -191,5 +195,6 @@ int main(int argc, char **argv)
       ofstream out(outfpath.c_str());
       detector.exportKeypoints(out);
     }
+    Locker::unlock(outfpath);
   }
 }
