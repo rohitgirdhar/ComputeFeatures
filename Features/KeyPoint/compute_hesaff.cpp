@@ -154,7 +154,7 @@ int main(int argc, char **argv)
   #pragma omp parallel for
   for (size_t i = 1; i <= imnames.size(); i++) { // IMP: 1 indexed
     Mat tmp = imread(indir + "/" + imnames[i]);
-    string outfpath = outdir + "/" + to_string(i) + ".hesaff.sift";
+    string outfpath = outdir + "/" + to_string((long long)i) + ".hesaff.sift";
 
     Mat image(tmp.rows, tmp.cols, CV_32FC1, Scalar(0));
 
