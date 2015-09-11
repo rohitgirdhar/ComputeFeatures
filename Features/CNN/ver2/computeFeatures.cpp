@@ -347,7 +347,7 @@ void readImageUsingService(const string& imid, Mat& I) {
   if (! initialized) {
     context = new zmq::context_t(1);
     socket = new zmq::socket_t(*context, ZMQ_REQ);
-    socket->connect(("tcp://localhost:" + to_string(port_num)).c_str());
+    socket->connect(("tcp://localhost:" + to_string((long long)port_num)).c_str());
     initialized = true;
   }
   zmq::message_t request(imid.length());
@@ -378,7 +378,7 @@ void readSegUsingService(const Mat& I, Mat& S) {
   if (! initialized) {
     context = new zmq::context_t(1);
     socket = new zmq::socket_t(*context, ZMQ_REQ);
-    socket->connect(("tcp://localhost:" + to_string(port_num)).c_str());
+    socket->connect(("tcp://localhost:" + to_string((long long)port_num)).c_str());
     initialized = true;
   }
   imwrite(qimg_path.c_str(), I);
