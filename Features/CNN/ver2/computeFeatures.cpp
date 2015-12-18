@@ -77,6 +77,9 @@ main(int argc, char *argv[]) {
      "Directory with images with same filename as in the corpus images dir "
      "but uses it to prune the set of windows. "
      "By default keeps only those overlapping <0.2 with FG")
+    ("seglist", po::value<string>()->default_value(""),
+     "List with the paths (wrt segdir) for segmentations for each image. "
+     "By default it uses from imgslst.")
     ("startimgid,z", po::value<long long>()->default_value(1),
      "The image id of the first image in the list."
      "Useful for testing parts of dataset because the selsearch boxes" 
@@ -116,6 +119,7 @@ main(int argc, char *argv[]) {
   fs::path IMGSLST = fs::path(vm["imgslst"].as<string>());
   fs::path WINDIR = fs::path(vm["windir"].as<string>());
   fs::path SEGDIR = fs::path(vm["segdir"].as<string>());
+  fs::path SEGLIST = fs::path(vm["seglist"].as<string>());
   string POOLTYPE = vm["pool"].as<string>();
   bool NORMALIZE = vm["normalize"].as<bool>();
   long long START_IMGID = vm["startimgid"].as<long long>();
@@ -130,13 +134,6 @@ main(int argc, char *argv[]) {
     LOG(FATAL) << "Unknown output-type " << vm["output-type"].as<string>();
   }
 
-  if (SEGDIR.string().length() > 0 && (fs::exists(SEGDIR) || 
-        SEGDIR.string().compare("service") == 0)) {
-    LOG(INFO) << "Will be pruning the bounding boxes using "
-              << "segmentation information";
-  } else {
-    SEGDIR = fs::path(""); // so that I don't need to check existance again
-  }
   if (POOLTYPE.length() > 0) {
     LOG(INFO) << "Will be pooling with " << POOLTYPE;
   }
@@ -148,6 +145,20 @@ main(int argc, char *argv[]) {
   // Get list of images in directory
   vector<fs::path> imgs;
   readList<fs::path>(IMGSLST, imgs);
+
+  vector<fs::path> segpaths;
+  if (SEGDIR.string().length() > 0 && (fs::exists(SEGDIR) || 
+        SEGDIR.string().compare("service") == 0)) {
+    LOG(INFO) << "Will be pruning the bounding boxes using "
+              << "segmentation information";
+    if (SEGLIST.string().length() > 0) {
+      readList<fs::path>(SEGLIST, segpaths);
+    } else {
+      segpaths = imgs;
+    }
+  } else {
+    SEGDIR = fs::path(""); // so that I don't need to check existance again
+  }
 
   // Get list of image ids (1 indexed) to compute for 
   vector<long long> ids2compute4;
@@ -209,7 +220,7 @@ main(int argc, char *argv[]) {
         readSegUsingService(I, S);
         pruneBboxesWithSeg(I.size(), S, bboxes);
       } else {
-        fs::path segpath = SEGDIR / imgpath;
+        fs::path segpath = SEGDIR / segpaths[imgid - 1];
         if (!fs::exists(segpath)) {
           LOG(ERROR) << "Segmentation information not found for " << segpath;
         } else {
