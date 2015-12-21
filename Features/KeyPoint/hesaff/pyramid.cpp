@@ -269,8 +269,9 @@ void HessianDetector::detectPyramidKeypoints(const Mat &image)
       firstLevel = doubleImage(image);
       pixelDistance *= 0.5f;
       curSigma *= 2.0f;
-   } else
-      firstLevel = image.clone();
+   } else {
+      image.copyTo(firstLevel);
+   }
    
    // prepare first octave input image
    if (par.initialSigma > curSigma)

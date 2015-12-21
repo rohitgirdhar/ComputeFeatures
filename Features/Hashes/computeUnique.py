@@ -1,6 +1,8 @@
 from computeHashFromHbase import tic_toc_print
-hashesFile = '/memexdata/Dataset/processed/0004_IST/Features/SHA1/hashes.txt'
-outFile =  '/memexdata/Dataset/processed/0004_IST/lists/Uniq_sha1.txt'
+#hashesFile = '/memexdata/Dataset/processed/0004_IST/Features/SHA1/hashes.txt'
+hashesFile = '/memexdata/Dataset/processed/0004_IST/Features/DHash/hashes.txt'
+#outFile =  '/memexdata/Dataset/processed/0004_IST/lists/Uniq_sha1.txt'
+outFile =  '/memexdata/Dataset/processed/0004_IST/lists/Uniq_dhash.txt'
 
 uniq_hashes = {}
 isUniq = [] # T/F

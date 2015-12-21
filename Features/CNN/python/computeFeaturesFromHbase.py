@@ -124,7 +124,7 @@ def main():
   imgslist = readList('/home/rgirdhar/memexdata/Dataset/processed/0004_IST/lists/Images.txt')
   #start_pos = 2617800 # default = 0, 0 indexed
   # start_pos is the position in the Images.txt file (0 indexed)
-  start_pos = 9140196 # default = 0, 0 indexed
+  start_pos = 9140196 # default = 0, 0 indexed (NOTE:: This is the position in the file)
   uniqImIds = getUniqImgIdsList('/home/rgirdhar/memexdata/Dataset/processed/0004_IST/lists/Uniq_sha1.txt', start_pos)
   runFeatExt(imgslist, uniqImIds, model, tab, stor, normalize=True)
 
