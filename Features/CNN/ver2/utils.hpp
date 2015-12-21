@@ -176,15 +176,26 @@ void pruneBboxesWithSeg(const Size& I_size,
     const fs::path& segpath, vector<Rect>& bboxes, Mat& S) {
   // TODO (rg): speed up by using integral images
   vector<Rect> res;
+  vector<float> overlaps;
   S = imread(segpath.string().c_str(), CV_LOAD_IMAGE_GRAYSCALE);
   // resize to the same size as I
   resize(S, S, I_size);
   for (int i = 0; i < bboxes.size(); i++) {
     int in = cv::sum(S(bboxes[i]))[0]; 
     int tot = bboxes[i].width * bboxes[i].height;
-    if (in * 1.0f / tot < PERC_FGOVERLAP_FOR_BG) { // bg patch
+    float ov = in * 1.0f / tot;
+    overlaps.push_back(ov);
+    if (ov < PERC_FGOVERLAP_FOR_BG) { // bg patch
       res.push_back(bboxes[i]);
     }
+  }
+  if (res.size() == 0) {
+    LOG(ERROR) << "pruneBboxesWithSeg: No patches qualified for background.";
+    int min_pos = distance(overlaps.begin(), 
+        min_element(overlaps.begin(), overlaps.end()));
+    res.push_back(bboxes[min_pos]);
+    LOG(ERROR) << "pruneBboxesWithSeg: Pushing in the min-overlap box (dist= "
+               << overlaps[min_pos] << " at " << min_pos << ")";
   }
   bboxes = res;
 }
