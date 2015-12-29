@@ -173,13 +173,13 @@ void genSlidingWindows(const Size& I_size, vector<Rect>& bboxes) {
 }
 
 void pruneBboxesWithSeg(const Size& I_size, 
-    const fs::path& segpath, vector<Rect>& bboxes, Mat& S) {
+    const Mat& S_orig, vector<Rect>& bboxes) {
   // TODO (rg): speed up by using integral images
   vector<Rect> res;
   vector<float> overlaps;
-  S = imread(segpath.string().c_str(), CV_LOAD_IMAGE_GRAYSCALE);
+  Mat S;
   // resize to the same size as I
-  resize(S, S, I_size);
+  resize(S_orig, S, I_size);
   for (int i = 0; i < bboxes.size(); i++) {
     int in = cv::sum(S(bboxes[i]))[0]; 
     int tot = bboxes[i].width * bboxes[i].height;
@@ -191,30 +191,25 @@ void pruneBboxesWithSeg(const Size& I_size,
   }
   if (res.size() == 0) {
     LOG(ERROR) << "pruneBboxesWithSeg: No patches qualified for background.";
-    int min_pos = distance(overlaps.begin(), 
-        min_element(overlaps.begin(), overlaps.end()));
-    res.push_back(bboxes[min_pos]);
-    LOG(ERROR) << "pruneBboxesWithSeg: Pushing in the min-overlap box (dist= "
-               << overlaps[min_pos] << " at " << min_pos << ")";
+    if (bboxes.size() > 0) {
+      int min_pos = distance(overlaps.begin(), 
+          min_element(overlaps.begin(), overlaps.end()));
+      res.push_back(bboxes[min_pos]);
+      LOG(ERROR) << "pruneBboxesWithSeg: Pushing in the min-overlap box (dist= "
+                 << overlaps[min_pos] << " at " << min_pos << ")";
+    } else {
+      LOG(ERROR) << "pruneBboxesWithSeg: There are no boxes, returning the full image";
+      res.push_back(Rect(0, 0, I_size.width - 1, I_size.height - 1));
+    }
   }
   bboxes = res;
 }
 
+
 void pruneBboxesWithSeg(const Size& I_size, 
-    const Mat& S_orig, vector<Rect>& bboxes) {
-  // TODO (rg): speed up by using integral images
-  vector<Rect> res;
-  // resize to the same size as I
-  Mat S;
-  resize(S_orig, S, I_size);
-  for (int i = 0; i < bboxes.size(); i++) {
-    int in = cv::sum(S(bboxes[i]))[0]; 
-    int tot = bboxes[i].width * bboxes[i].height;
-    if (in * 1.0f / tot < PERC_FGOVERLAP_FOR_BG) { // bg patch
-      res.push_back(bboxes[i]);
-    }
-  }
-  bboxes = res;
+    const fs::path& segpath, vector<Rect>& bboxes, Mat& S) {
+  S = imread(segpath.string().c_str(), CV_LOAD_IMAGE_GRAYSCALE);
+  pruneBboxesWithSeg(I_size, S, bboxes);
 }
 
 
