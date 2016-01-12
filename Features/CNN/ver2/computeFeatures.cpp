@@ -144,7 +144,7 @@ main(int argc, char *argv[]) {
 
   // Get list of images in directory
   vector<fs::path> imgs;
-  readList<fs::path>(IMGSLST, imgs);
+  readList_withSpaces<fs::path>(IMGSLST, imgs);
 
   vector<fs::path> segpaths;
   if (SEGDIR.string().length() > 0 && (fs::exists(SEGDIR) || 
@@ -152,7 +152,7 @@ main(int argc, char *argv[]) {
     LOG(INFO) << "Will be pruning the bounding boxes using "
               << "segmentation information";
     if (SEGLIST.string().length() > 0) {
-      readList<fs::path>(SEGLIST, segpaths);
+      readList_withSpaces<fs::path>(SEGLIST, segpaths);
     } else {
       segpaths = imgs;
     }
