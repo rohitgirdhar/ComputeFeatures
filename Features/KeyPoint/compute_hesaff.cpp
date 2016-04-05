@@ -155,7 +155,7 @@ int main(int argc, char **argv)
   #pragma omp parallel for
   for (size_t i = 1; i <= imnames.size(); i++) { // IMP: 1 indexed
     Mat tmp = imread(indir + "/" + imnames[i - 1]);
-    string outfpath = outdir + "/" + to_string((long long)i) + ".hesaff.sift";
+    string outfpath = outdir + "/" + imnames[i - 1] + ".hesaff";
     if (!Locker::lock(outfpath)) {
       continue;
     }

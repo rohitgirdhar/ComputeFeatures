@@ -10,8 +10,9 @@ namespace Locker {
     string lock_fpath = fpath + ".lock";
     if (stat(fpath.c_str(), &info) != 0 && 
         stat(lock_fpath.c_str(), &info) != 0) {
-      mkdir(lock_fpath.c_str(),
-          S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+      //mkdir(lock_fpath.c_str(),
+      //    S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+      system((string("mkdir -p ") + lock_fpath).c_str());
       return true;
     } else {
       return false;
